@@ -1,0 +1,133 @@
+{
+  "name": "vscrt",
+  "displayName": "vsCRT",
+  "description": "Organize SSH servers into clusters and connect quickly from a custom Activity Bar view.",
+  "version": "0.0.1",
+  "publisher": "kynoci",
+  "license": "GPL-3.0-only",
+  "icon": "images/vsCRT.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kynoci/vsCRT.git"
+  },
+  "engines": {
+    "vscode": "^1.106.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vscrt",
+          "title": "vsCRT",
+          "icon": "$(terminal)"
+        }
+      ]
+    },
+    "views": {
+      "vscrt": [
+        {
+          "id": "vscrt.mainView",
+          "name": "vsCRT",
+          "icon": "$(terminal)"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "vsCRT.openConfig",
+          "when": "view == vscrt.mainView",
+          "group": "navigation"
+        },
+        {
+          "command": "vsCRT.addCluster",
+          "when": "view == vscrt.mainView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vsCRT.addServer",
+          "when": "view == vscrt.mainView",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vsCRT.addCluster",
+          "when": "view == vscrt.mainView && (viewItem == vscrtCluster || viewItem == vscrtSubcluster)",
+          "group": "inline"
+        },
+        {
+          "command": "vsCRT.addServer",
+          "when": "view == vscrt.mainView && (viewItem == vscrtCluster || viewItem == vscrtSubcluster)",
+          "group": "inline"
+        },
+        {
+          "command": "vsCRT.connect",
+          "when": "view == vscrt.mainView && viewItem == vscrtNode",
+          "group": "inline@9"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "vsCRT.helloWorld",
+        "title": "Hello World"
+      },
+      {
+        "command": "vsCRT.mySecondCommand",
+        "title": "Run My Second Command"
+      },
+      {
+        "command": "vsCRT.openConfig",
+        "title": "Open vsCRT Config",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "vsCRT.addCluster",
+        "title": "Add Cluster",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "vsCRT.addServer",
+        "title": "Add Server",
+        "icon": "$(add)"
+      },
+      {
+        "command": "vsCRT.connect",
+        "title": "Connect (SSH)",
+        "icon": "$(plug)"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.106.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.46.3",
+    "eslint": "^9.39.1",
+    "esbuild": "^0.27.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  },
+  "packageManager": "pnpm@10.23.0+sha512.21c4e5698002ade97e4efe8b8b4a89a8de3c85a37919f957e7a0f30f38fbc5bbdd05980ffe29179b2fb6e6e691242e098d945d1601772cad0fef5fb6411e2a4b"
+}
