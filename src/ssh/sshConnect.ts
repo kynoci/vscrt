@@ -1,137 +1,185 @@
 import * as vscode from "vscode";
-import * as os from "os";
-import * as path from "path";
-import { CRTConfigNode } from "../ConfigSSH/crtConfig";
-import { pickWslDistroWithSshpassSync } from "../utils/wslSshpass";
+import { CRTConfigNode, CRTPasswordDelivery } from "../config/vscrtConfig";
+import { CRTSecretService } from "../config/vscrtSecret";
+import {
+  buildBaseSshArgs,
+  escapeForDoubleQuotes,
+  expandTilde,
+  getSshCommand,
+  getSshpassCommand,
+  resolveEndpoint,
+  runInTerminal,
+} from "./sshHelpers";
+import { resolveAuthMode } from "./sshAuth";
+import {
+  associateTerminal,
+  buildBashPipeCommand,
+  buildBashSshpassCommand,
+  buildPowerShellPipeCommand,
+  buildPowerShellSshpassCommand,
+  servePasswordViaLoopback,
+  servePasswordViaPipe,
+  writeSecurePasswordFile,
+} from "./sshPasswordDelivery";
 
-function hasUserAtHost(s: string): boolean {
-  return /.+@.+/.test(s);
-}
+const WINDOWS_SHELL = "powershell.exe";
+const UNIX_SHELL = "/bin/bash";
 
-function buildTarget(node: CRTConfigNode): string {
-  const ep = (node.endpoint ?? "").trim();
-  // If endpoint already looks like user@host, use it directly
-  if (ep && hasUserAtHost(ep)) {
-    return ep;
+function resolveDelivery(node: CRTConfigNode): CRTPasswordDelivery {
+  if (node.passwordDelivery) {
+    return node.passwordDelivery;
   }
-
-  const host = (node.hostName ?? ep).trim();
-  const user = (node.user ?? "").trim();
-  return user ? `${user}@${host}` : host;
-}
-
-// Expand "~" reliably (esp. Windows where ssh.exe won't do it)
-function expandTilde(p: string): string {
-  const s = p.trim();
-  if (!s) {
-    return s;
+  if (
+    process.platform === "win32" ||
+    process.platform === "linux" ||
+    process.platform === "darwin"
+  ) {
+    return "tempfile";
   }
-  if (s === "~") {
-    return os.homedir();
-  }
-  if (s.startsWith("~/") || s.startsWith("~\\")) {
-    return path.join(os.homedir(), s.slice(2));
-  }
-  return s;
+  return "argv";
 }
 
 export class CRTSshService {
-  connectFromConfig(node: CRTConfigNode): void {
-    const target = buildTarget(node);
+  constructor(private readonly secretService?: CRTSecretService) {}
 
-    const method =
-      node.preferredAuthentication ??
-      (node.identityFile
-        ? "publickey"
-        : node.password
-        ? "password"
-        : "publickey");
+  async connectFromConfig(
+    node: CRTConfigNode,
+    location: "panel" | "editor" = "panel",
+  ): Promise<void> {
+    const { target, port } = resolveEndpoint(node);
+    const mode = resolveAuthMode(node);
+    const sshCmd = getSshCommand();
+    const sshArgs = buildBaseSshArgs(node, port);
 
-    const port = node.port ?? 22;
+    if (mode === "password-auto") {
+      const delivery = resolveDelivery(node);
+      const sshpassCmd = getSshpassCommand();
 
-    // --------------------------
-    // PUBLIC KEY MODE
-    // --------------------------
-    if (method === "publickey") {
+      let plaintext: string | undefined;
+      try {
+        plaintext = this.secretService
+          ? await this.secretService.unseal(node.password)
+          : node.password;
+      } catch (err) {
+        vscode.window.showErrorMessage(
+          `vsCRT: could not read password for "${node.name}": ${String(err)}`,
+        );
+        return;
+      }
+      if (!plaintext) {
+        vscode.window.showErrorMessage(
+          `vsCRT: no password stored for "${node.name}". Use "Change Password" to set one.`,
+        );
+        return;
+      }
+
+      if (delivery === "tempfile") {
+        try {
+          const pwdFile = await writeSecurePasswordFile(plaintext);
+          const isWindows = process.platform === "win32";
+          const cmd = isWindows
+            ? buildPowerShellSshpassCommand({
+                sshpassCmd,
+                pwdFile,
+                sshCmd,
+                sshArgs,
+                target,
+              })
+            : buildBashSshpassCommand({
+                sshpassCmd,
+                pwdFile,
+                sshCmd,
+                sshArgs,
+                target,
+              });
+          const terminal = runInTerminal(node.name, cmd, {
+            shellPath: isWindows ? WINDOWS_SHELL : UNIX_SHELL,
+            location,
+          });
+          associateTerminal(terminal, { file: pwdFile });
+          return;
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `vsCRT: tempfile delivery failed, falling back to argv. ${String(err)}`,
+          );
+        }
+      }
+
+      if (delivery === "pipe") {
+        try {
+          const isWindows = process.platform === "win32";
+          if (isWindows) {
+            const handle = await servePasswordViaPipe(plaintext);
+            const cmd = buildPowerShellPipeCommand({
+              pipeName: handle.pipeName,
+              token: handle.token,
+              sshpassCmd,
+              sshCmd,
+              sshArgs,
+              target,
+            });
+            const terminal = runInTerminal(node.name, cmd, {
+              shellPath: WINDOWS_SHELL,
+              location,
+            });
+            associateTerminal(terminal, { server: handle.server });
+            return;
+          }
+          const handle = await servePasswordViaLoopback(plaintext);
+          const cmd = buildBashPipeCommand({
+            host: handle.host,
+            port: handle.port,
+            token: handle.token,
+            sshpassCmd,
+            sshCmd,
+            sshArgs,
+            target,
+          });
+          const terminal = runInTerminal(node.name, cmd, {
+            shellPath: UNIX_SHELL,
+            location,
+          });
+          associateTerminal(terminal, { server: handle.server });
+          return;
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `vsCRT: pipe delivery failed, falling back to argv. ${String(err)}`,
+          );
+        }
+      }
+
+      // argv fallback (legacy behavior)
+      const safePassword = escapeForDoubleQuotes(plaintext);
+      const finalCmd = `${sshpassCmd} -p "${safePassword}" ${sshCmd} ${sshArgs.join(" ")} "${target}"`;
+      runInTerminal(node.name, finalCmd, { location });
+      return;
+    }
+
+    if (mode === "password-manual") {
+      const finalCmd = `${sshCmd} ${sshArgs.join(" ")} "${target}"`;
+      runInTerminal(node.name, finalCmd, { location });
+      return;
+    }
+
+    if (mode === "publickey") {
       if (!node.identityFile?.trim()) {
         vscode.window.showErrorMessage("vsCRT: identityFile missing.");
         return;
       }
+
       if (node.identityFile.trim().endsWith(".pub")) {
         vscode.window.showErrorMessage(
-          "vsCRT: identityFile must be PRIVATE key (no .pub)."
+          "vsCRT: identityFile must be PRIVATE key (no .pub).",
         );
         return;
       }
 
       const keyPath = expandTilde(node.identityFile);
-
-      // base ssh command
-      // (NOTE: don't add PasswordAuthentication=no unless you REALLY want to forbid fallback)
-      const sshArgs = [
-        `-p ${port}`,
-        `-i "${keyPath}"`,
-        // `-o IdentitiesOnly=yes`,
-        // `-o PasswordAuthentication=no`,
-      ];
-
-      if (node.extraArgs?.trim()) {
-        sshArgs.push(node.extraArgs.trim());
-      }
-
-      // IMPORTANT: on Windows, use ssh.exe through cmd.exe to avoid Git-Bash/MSYS path conversion
-      // ✅ Always plain ssh (no cmd.exe wrapper)
-      const finalCmd = `ssh ${sshArgs.join(" ")} "${target}"`;
-
-      const terminal = vscode.window.createTerminal({
-        name: `vsCRT: ${node.name}`,
-      });
-      terminal.show(true);
-      terminal.sendText(finalCmd, true);
+      const finalCmd = `${sshCmd} ${[...sshArgs, `-i "${keyPath}"`].join(" ")} "${target}"`;
+      runInTerminal(node.name, finalCmd, { location });
       return;
     }
 
-    // --------------------------
-    // PASSWORD MODE (sshp ass)
-    // --------------------------
-    if (method === "password") {
-      if (!node.password?.trim()) {
-        vscode.window.showErrorMessage("vsCRT: password missing.");
-        return;
-      }
-
-      const escapedPassword = node.password.replace(/'/g, `'\"'\"'`);
-      const baseSsh = `ssh -p ${port} "${target}"`;
-
-      let finalCmd =
-        process.platform === "win32"
-          ? (() => {
-              const picked = pickWslDistroWithSshpassSync();
-              if (!picked.distro) {
-                const found = picked.distros.length
-                  ? picked.distros.join(", ")
-                  : "(none)";
-                vscode.window.showErrorMessage(
-                  `vsCRT: No WSL distro with sshpass found. Distros detected: ${found}. Install sshpass in one distro (Debian/Ubuntu: sudo apt install sshpass).`
-                );
-                return "";
-              }
-              return `wsl -d "${picked.distro}" -- sshpass -p '${escapedPassword}' ${baseSsh}`;
-            })()
-          : `sshpass -p '${escapedPassword}' ${baseSsh}`;
-
-      if (!finalCmd) {
-        return;
-      }
-
-      const terminal = vscode.window.createTerminal({
-        name: `vsCRT: ${node.name}`,
-      });
-      terminal.show(true);
-      terminal.sendText(finalCmd, true);
-      return;
-    }
-
-    vscode.window.showErrorMessage(`vsCRT: Unknown auth method: ${method}`);
+    vscode.window.showErrorMessage(`vsCRT: Unknown auth method: ${mode}`);
   }
 }

@@ -1,14 +1,14 @@
 {
   "name": "vscrt",
   "displayName": "vsCRT",
-  "description": "Organize SSH servers into clusters and connect quickly from a custom Activity Bar view.",
-  "version": "0.0.1",
+  "description": "",
+  "version": "0.9.2",
   "publisher": "kynoci",
   "license": "GPL-3.0-only",
-  "icon": "images/vsCRT.png",
+  "icon": "images/logo.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kynoci/vsCRT.git"
+    "url": "https://github.com/kynoci/vscrt.git"
   },
   "engines": {
     "vscode": "^1.106.1"
@@ -18,21 +18,56 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "vsCRT",
+      "properties": {
+        "vsCRT.doubleClickTerminalLocation": {
+          "type": "string",
+          "enum": [
+            "panel",
+            "editor"
+          ],
+          "enumDescriptions": [
+            "Bottom terminal panel (split window)",
+            "Editor area as a full tab"
+          ],
+          "default": "editor",
+          "description": "Where the SSH terminal opens when you double-click a server in the Connection view. Overridden by a node's 'terminalLocation' field if set."
+        },
+        "vsCRT.buttonClickTerminalLocation": {
+          "type": "string",
+          "enum": [
+            "panel",
+            "editor"
+          ],
+          "enumDescriptions": [
+            "Bottom terminal panel (split window)",
+            "Editor area as a full tab"
+          ],
+          "default": "panel",
+          "description": "Where the SSH terminal opens when you invoke Connect from a context menu item or the command palette. Overridden by a node's 'terminalLocation' field if set. Note: the inline 'open in editor' button on each row always ignores this setting."
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
           "id": "vscrt",
           "title": "vsCRT",
-          "icon": "$(terminal)"
+          "icon": "images/logo-line-white.svg"
         }
       ]
     },
     "views": {
       "vscrt": [
         {
-          "id": "vscrt.mainView",
-          "name": "vsCRT",
-          "icon": "$(terminal)"
+          "id": "vscrt.connectionView",
+          "name": "Connection",
+          "type": "webview"
+        },
+        {
+          "id": "vscrt.statusView",
+          "name": "Status"
         }
       ]
     },
@@ -40,47 +75,33 @@
       "view/title": [
         {
           "command": "vsCRT.openConfig",
-          "when": "view == vscrt.mainView",
+          "when": "view == vscrt.connectionView",
           "group": "navigation"
         },
         {
           "command": "vsCRT.addCluster",
-          "when": "view == vscrt.mainView",
+          "when": "view == vscrt.connectionView",
           "group": "navigation@1"
         },
         {
           "command": "vsCRT.addServer",
-          "when": "view == vscrt.mainView",
+          "when": "view == vscrt.connectionView",
           "group": "navigation@2"
+        },
+        {
+          "command": "vsCRT.refresh",
+          "when": "view == vscrt.connectionView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vsCRT.refreshStatus",
+          "when": "view == vscrt.statusView",
+          "group": "navigation"
         }
       ],
-      "view/item/context": [
-        {
-          "command": "vsCRT.addCluster",
-          "when": "view == vscrt.mainView && (viewItem == vscrtCluster || viewItem == vscrtSubcluster)",
-          "group": "inline"
-        },
-        {
-          "command": "vsCRT.addServer",
-          "when": "view == vscrt.mainView && (viewItem == vscrtCluster || viewItem == vscrtSubcluster)",
-          "group": "inline"
-        },
-        {
-          "command": "vsCRT.connect",
-          "when": "view == vscrt.mainView && viewItem == vscrtNode",
-          "group": "inline@9"
-        }
-      ]
+      "view/item/context": []
     },
     "commands": [
-      {
-        "command": "vsCRT.helloWorld",
-        "title": "Hello World"
-      },
-      {
-        "command": "vsCRT.mySecondCommand",
-        "title": "Run My Second Command"
-      },
       {
         "command": "vsCRT.openConfig",
         "title": "Open vsCRT Config",
@@ -88,7 +109,7 @@
       },
       {
         "command": "vsCRT.addCluster",
-        "title": "Add Cluster",
+        "title": "Add Folder",
         "icon": "$(folder)"
       },
       {
@@ -100,6 +121,73 @@
         "command": "vsCRT.connect",
         "title": "Connect (SSH)",
         "icon": "$(plug)"
+      },
+      {
+        "command": "vsCRT.connectAllInFolder",
+        "title": "vsCRT: Connect All Servers in Folder",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "vsCRT.changePassword",
+        "title": "Change Password",
+        "icon": "$(key)"
+      },
+      {
+        "command": "vsCRT.editServer",
+        "title": "vsCRT: Edit Server",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "vsCRT.duplicateNode",
+        "title": "vsCRT: Duplicate Server",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "vsCRT.renameCluster",
+        "title": "vsCRT: Rename Folder",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "vsCRT.deleteNode",
+        "title": "vsCRT: Delete Server",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "vsCRT.deleteCluster",
+        "title": "vsCRT: Delete Folder",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "vsCRT.clearAllSecrets",
+        "title": "vsCRT: Clear All Stored Passwords"
+      },
+      {
+        "command": "vsCRT.setPasswordStorage",
+        "title": "vsCRT: Change Password Storage Mode",
+        "icon": "$(lock)"
+      },
+      {
+        "command": "vsCRT.changeIcon",
+        "title": "vsCRT: Change Icon",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "vsCRT.lockPassphrase",
+        "title": "vsCRT: Lock Passphrase"
+      },
+      {
+        "command": "vsCRT.resetPassphrase",
+        "title": "vsCRT: Reset Passphrase Setup"
+      },
+      {
+        "command": "vsCRT.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "vsCRT.refreshStatus",
+        "title": "Refresh Status",
+        "icon": "$(refresh)"
       }
     ]
   },
@@ -117,17 +205,21 @@
     "lint": "eslint src",
     "test": "vscode-test"
   },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0",
+    "@vscode/codicons": "^0.0.45"
+  },
   "devDependencies": {
-    "@types/vscode": "^1.106.1",
     "@types/mocha": "^10.0.10",
-    "@types/node": "22.x",
-    "typescript-eslint": "^8.46.3",
-    "eslint": "^9.39.1",
+    "@types/node": "^22.19.17",
+    "@types/vscode": "^1.106.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.0",
+    "eslint": "^9.39.1",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "typescript-eslint": "^8.46.3"
   },
   "packageManager": "pnpm@10.23.0+sha512.21c4e5698002ade97e4efe8b8b4a89a8de3c85a37919f957e7a0f30f38fbc5bbdd05980ffe29179b2fb6e6e691242e098d945d1601772cad0fef5fb6411e2a4b"
 }
