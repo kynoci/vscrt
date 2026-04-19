@@ -5,6 +5,18 @@ this file. The format is loosely based on [Keep a
 Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5]
+
+### Fixed
+
+- **First-run bootstrap no longer seeds a fake Production/Staging
+  tree.** `createDefaultConfig()` had drifted to return a populated
+  demo tree, so a brand-new install wrote that tree to
+  `~/.vscrt/vscrtConfig.json` and the Connection view showed phantom
+  servers instead of the "No servers yet." empty state. Restored
+  `createDefaultConfig()` to `{ folder: [] }`; the rich demo stays
+  opt-in via the "Load Example" button (→ `vscrtConfigExample.json`).
+
 ## [1.0.4]
 
 ### Fixed

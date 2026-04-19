@@ -3,7 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "l10n": "./l10n",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "kynoci",
   "license": "GPL-3.0-only",
   "icon": "images/vscrt-logo-color.png",

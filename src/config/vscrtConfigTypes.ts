@@ -143,22 +143,5 @@ export interface CRTNodeCommand {
 }
 
 export function createDefaultConfig(): CRTConfig {
-  return {
-    folder: [
-      {
-        name: "Production",
-        nodes: [{ name: "Prod Web", endpoint: "deploy@prod-web" }],
-        subfolder: [
-          {
-            name: "Database",
-            nodes: [{ name: "Prod DB", endpoint: "postgres@prod-db" }],
-          },
-        ],
-      },
-      {
-        name: "Staging",
-        nodes: [{ name: "Staging Web", endpoint: "deploy@staging-web" }],
-      },
-    ],
-  };
+  return { folder: [] };
 }
