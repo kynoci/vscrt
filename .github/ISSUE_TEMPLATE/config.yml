@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/kynoci/vscrt/security/advisories/new
+    about: Do NOT file security reports as public issues. Use a private GitHub Security Advisory.
+  - name: Questions & discussion
+    url: https://github.com/kynoci/vscrt/discussions
+    about: "How do I…" questions and general chat go in Discussions, not Issues.

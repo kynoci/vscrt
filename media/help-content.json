@@ -1,0 +1,500 @@
+{
+  "generatedAt": "2026-04-19T11:38:00.428Z",
+  "version": "1.0.3",
+  "commandsByGroup": {
+    "Config & diagnostics": [
+      {
+        "id": "vsCRT.openConfig",
+        "title": "vsCRT: Open Config",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.refresh",
+        "title": "vsCRT: Refresh Connection View",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.refreshStatus",
+        "title": "vsCRT: Refresh Status View",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.showLog",
+        "title": "vsCRT: Show Output Log",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.importSshConfig",
+        "title": "vsCRT: Import from ~/.ssh/config",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.vaultStatusMenu",
+        "title": "vsCRT: Vault Menu",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.validateConfig",
+        "title": "vsCRT: Validate Config",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.restoreConfigBackup",
+        "title": "vsCRT: Restore Config from Backup…",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.exportProfile",
+        "title": "vsCRT: Export Profile to Encrypted Bundle…",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.importProfile",
+        "title": "vsCRT: Import Profile from Encrypted Bundle…",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.showDiagnostics",
+        "title": "vsCRT: Show Diagnostics",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.showConnectionHistory",
+        "title": "vsCRT: Show Connection History",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.showHelp",
+        "title": "vsCRT: Show Help",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.showSessionRecordings",
+        "title": "vsCRT: Show Session Recordings",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.showSessionHistory",
+        "title": "vsCRT: Show Session History",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.openSftpBrowser",
+        "title": "vsCRT: Open SFTP Browser…",
+        "group": "Config & diagnostics"
+      },
+      {
+        "id": "vsCRT.openSftpBrowserPick",
+        "title": "vsCRT: Open SFTP Browser…",
+        "group": "Config & diagnostics"
+      }
+    ],
+    "Server & folder management": [
+      {
+        "id": "vsCRT.addCluster",
+        "title": "vsCRT: Add Folder",
+        "group": "Server & folder management"
+      },
+      {
+        "id": "vsCRT.addServer",
+        "title": "vsCRT: Add Server",
+        "group": "Server & folder management"
+      },
+      {
+        "id": "vsCRT.editServer",
+        "title": "vsCRT: Edit Server",
+        "group": "Server & folder management"
+      },
+      {
+        "id": "vsCRT.duplicateNode",
+        "title": "vsCRT: Duplicate Server",
+        "group": "Server & folder management"
+      },
+      {
+        "id": "vsCRT.renameCluster",
+        "title": "vsCRT: Rename Folder",
+        "group": "Server & folder management"
+      },
+      {
+        "id": "vsCRT.deleteNode",
+        "title": "vsCRT: Delete Server",
+        "group": "Server & folder management"
+      },
+      {
+        "id": "vsCRT.deleteCluster",
+        "title": "vsCRT: Delete Folder",
+        "group": "Server & folder management"
+      },
+      {
+        "id": "vsCRT.bulkDelete",
+        "title": "vsCRT: Delete Selected Servers",
+        "group": "Server & folder management"
+      },
+      {
+        "id": "vsCRT.addLaunchProfile",
+        "title": "vsCRT: Add Launch Profile…",
+        "group": "Server & folder management"
+      },
+      {
+        "id": "vsCRT.deleteLaunchProfile",
+        "title": "vsCRT: Delete Launch Profile…",
+        "group": "Server & folder management"
+      }
+    ],
+    "Connection": [
+      {
+        "id": "vsCRT.connect",
+        "title": "vsCRT: Connect (SSH)",
+        "group": "Connection"
+      },
+      {
+        "id": "vsCRT.testConnection",
+        "title": "vsCRT: Test Connection",
+        "group": "Connection"
+      },
+      {
+        "id": "vsCRT.connectAllInFolder",
+        "title": "vsCRT: Connect All Servers in Folder",
+        "group": "Connection"
+      },
+      {
+        "id": "vsCRT.quickConnect",
+        "title": "vsCRT: Quick Connect",
+        "group": "Connection"
+      },
+      {
+        "id": "vsCRT.runServerCommand",
+        "title": "vsCRT: Run Command…",
+        "group": "Connection"
+      },
+      {
+        "id": "vsCRT.bulkConnect",
+        "title": "vsCRT: Connect Selected Servers",
+        "group": "Connection"
+      },
+      {
+        "id": "vsCRT.bulkTest",
+        "title": "vsCRT: Test Selected Servers",
+        "group": "Connection"
+      },
+      {
+        "id": "vsCRT.runLaunchProfile",
+        "title": "vsCRT: Run Launch Profile…",
+        "group": "Connection"
+      }
+    ],
+    "Credentials & crypto": [
+      {
+        "id": "vsCRT.changePassword",
+        "title": "vsCRT: Change Password",
+        "group": "Credentials & crypto"
+      },
+      {
+        "id": "vsCRT.setPasswordStorage",
+        "title": "vsCRT: Change Password Storage Mode",
+        "group": "Credentials & crypto"
+      },
+      {
+        "id": "vsCRT.changeIcon",
+        "title": "vsCRT: Change Icon",
+        "group": "Credentials & crypto"
+      },
+      {
+        "id": "vsCRT.lockPassphrase",
+        "title": "vsCRT: Lock Passphrase",
+        "group": "Credentials & crypto"
+      },
+      {
+        "id": "vsCRT.resetPassphrase",
+        "title": "vsCRT: Reset Passphrase Setup",
+        "group": "Credentials & crypto"
+      },
+      {
+        "id": "vsCRT.rotateKdfParams",
+        "title": "vsCRT: Rotate Passphrase KDF Parameters",
+        "group": "Credentials & crypto"
+      },
+      {
+        "id": "vsCRT.generateKeypair",
+        "title": "vsCRT: Generate SSH Key Pair",
+        "group": "Credentials & crypto"
+      },
+      {
+        "id": "vsCRT.removeHostKey",
+        "title": "vsCRT: Remove Host Key from known_hosts",
+        "group": "Credentials & crypto"
+      }
+    ],
+    "Other": [
+      {
+        "id": "vsCRT.clearAllSecrets",
+        "title": "vsCRT: Clear All Stored Passwords",
+        "group": "Other"
+      },
+      {
+        "id": "vsCRT.loadExample",
+        "title": "vsCRT: Load Example Configuration",
+        "group": "Other"
+      }
+    ]
+  },
+  "settings": [
+    {
+      "id": "vsCRT.doubleClickTerminalLocation",
+      "type": "string",
+      "defaultValue": "\"panel\"",
+      "description": "Where the SSH terminal opens when you double-click a server in the Connection view. Overridden by a node's 'terminalLocation' field if set.",
+      "enum": [
+        "panel",
+        "editor"
+      ],
+      "enumDescriptions": [
+        "Bottom terminal panel (split window)",
+        "Editor area as a full tab"
+      ]
+    },
+    {
+      "id": "vsCRT.buttonClickTerminalLocation",
+      "type": "string",
+      "defaultValue": "\"editor\"",
+      "description": "Where the SSH terminal opens when you click the inline row-action button on a server (the one that appears on hover), invoke Connect from a context menu item, or use the command palette. Overridden by a node's 'terminalLocation' field if set.",
+      "enum": [
+        "panel",
+        "editor"
+      ],
+      "enumDescriptions": [
+        "Bottom terminal panel (split window)",
+        "Editor area as a full tab"
+      ]
+    },
+    {
+      "id": "vsCRT.hostKeyPolicy",
+      "type": "string",
+      "defaultValue": "\"prompt-on-first\"",
+      "description": "How vsCRT treats a host whose key isn't in ~/.ssh/known_hosts. ProxyJump chains fall back to OpenSSH's interactive in-terminal prompt when this is set to 'prompt-on-first'.",
+      "enum": [
+        "auto-accept",
+        "prompt-on-first",
+        "strict"
+      ],
+      "enumDescriptions": [
+        "Trust on first use (OpenSSH accept-new). Unknown hosts are added silently.",
+        "Prompt with a modal fingerprint dialog before adding an unknown host to known_hosts. Subsequent connections are strict.",
+        "Refuse any unknown host. You must add keys to ~/.ssh/known_hosts outside vsCRT."
+      ]
+    },
+    {
+      "id": "vsCRT.passphraseMinStrength",
+      "type": "integer",
+      "defaultValue": "3",
+      "description": "Minimum passphrase strength score (0=very weak … 4=very strong) accepted when setting or changing the vault passphrase.",
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "enumDescriptions": [
+        "Accept any passphrase (only minimum-length enforced).",
+        "Reject very weak passphrases.",
+        "Reject weak passphrases.",
+        "Require strong passphrases (recommended default).",
+        "Require very strong passphrases (highest entropy tier)."
+      ]
+    },
+    {
+      "id": "vsCRT.sessionRecording",
+      "type": "string",
+      "defaultValue": "\"off\"",
+      "description": "Controls whether vsCRT writes per-session recordings to ~/.vscrt/sessions/. Off by default; minimal records structured metadata only; full additionally captures terminal output.",
+      "enum": [
+        "off",
+        "minimal",
+        "full"
+      ],
+      "enumDescriptions": [
+        "Disable session recording entirely.",
+        "Record session metadata only (server, auth mode, timestamps). No transcript is written.",
+        "Record metadata PLUS the full terminal transcript to disk. WARNING: transcripts may contain passwords, tokens, or other sensitive output — enable only on trusted machines."
+      ]
+    },
+    {
+      "id": "vsCRT.connectionLogging",
+      "type": "string",
+      "defaultValue": "\"off\"",
+      "description": "Controls what vsCRT writes to ~/.vscrt/connections.log on each connect attempt. The log rolls at 5 MB to a .1 backup; it is local-only — nothing ever leaves the machine.",
+      "enum": [
+        "off",
+        "minimal",
+        "verbose"
+      ],
+      "enumDescriptions": [
+        "Disable the connection log entirely. Nothing is written to ~/.vscrt/connections.log.",
+        "Record timestamp, server name, auth mode, and outcome. Endpoints and error messages are NOT persisted.",
+        "Record everything from 'minimal' plus the full endpoint (user@host:port) and error message text."
+      ]
+    },
+    {
+      "id": "vsCRT.sharedConfigPaths",
+      "type": "array",
+      "defaultValue": "[]",
+      "description": "Optional list of additional vsCRT config files to load as READ-ONLY overlays. Each file is merged into the tree under a synthetic 'Shared (read-only)' folder. Password fields are stripped; only publickey / agent auth flows through. Requires workspace trust. Paths support '~' expansion; combine with ${workspaceFolder} for repo-scoped configs.",
+      "enum": null,
+      "enumDescriptions": null
+    },
+    {
+      "id": "vsCRT.passphraseAutoLock",
+      "type": "string",
+      "defaultValue": "\"15min\"",
+      "description": "When to clear the cached Argon2id-derived key. The passphrase itself is always re-prompted on next use after lock.",
+      "enum": [
+        "never",
+        "5min",
+        "15min",
+        "30min",
+        "1hour",
+        "onFocusLost"
+      ],
+      "enumDescriptions": [
+        "Never auto-lock. The Argon2id-derived key stays cached until manual lock or VS Code quits.",
+        "Auto-lock after 5 minutes of passphrase inactivity.",
+        "Auto-lock after 15 minutes of passphrase inactivity.",
+        "Auto-lock after 30 minutes of passphrase inactivity.",
+        "Auto-lock after 1 hour of passphrase inactivity.",
+        "Auto-lock whenever the VS Code window loses OS focus."
+      ]
+    }
+  ],
+  "keybindings": [
+    {
+      "command": "vsCRT.quickConnect",
+      "key": "ctrl+alt+s",
+      "mac": "cmd+alt+s"
+    },
+    {
+      "command": "vsCRT.openSftpBrowserPick",
+      "key": "ctrl+alt+f",
+      "mac": "cmd+alt+f"
+    }
+  ],
+  "capabilities": [
+    {
+      "feature": "SSH password auth",
+      "supported": true,
+      "notes": "OS-keychain or Argon2id-encrypted-in-file; never on argv."
+    },
+    {
+      "feature": "SSH public-key auth",
+      "supported": true,
+      "notes": "With explicit identityFile, or via ssh-agent when no file is pinned."
+    },
+    {
+      "feature": "ssh-agent",
+      "supported": true,
+      "notes": "Auto-detected via SSH_AUTH_SOCK."
+    },
+    {
+      "feature": "ssh-agent forwarding (-A)",
+      "supported": true,
+      "notes": "Per-node `agentForwarding`."
+    },
+    {
+      "feature": "ProxyJump",
+      "supported": true,
+      "notes": "Comma-separated for multi-hop chains."
+    },
+    {
+      "feature": "Port forwards (-L/-R/-D)",
+      "supported": true,
+      "notes": "Per-node `portForwards` array."
+    },
+    {
+      "feature": "Per-terminal env vars",
+      "supported": true,
+      "notes": "`env: {KEY: VALUE}` on a node."
+    },
+    {
+      "feature": "Host-key verification (TOFU)",
+      "supported": true,
+      "notes": "Three modes via `vsCRT.hostKeyPolicy`."
+    },
+    {
+      "feature": "Saved shell snippets",
+      "supported": true,
+      "notes": "Per-node `commands` array — Run Command… in context menu."
+    },
+    {
+      "feature": "Encrypted profile export/import",
+      "supported": true,
+      "notes": "vscrt-bundle/v1 with Argon2id key derivation or stripped audit mode."
+    },
+    {
+      "feature": "Config backup + restore",
+      "supported": true,
+      "notes": "Rolling 10-backup cap under ~/.vscrt/backups/."
+    },
+    {
+      "feature": "Connection audit log",
+      "supported": true,
+      "notes": "Opt-in via `vsCRT.connectionLogging`."
+    },
+    {
+      "feature": "SFTP / file transfer",
+      "supported": true,
+      "notes": "Right-click a server → Open SFTP… for an interactive sftp terminal, or Open SFTP Browser (Preview)… for a read-only directory view with breadcrumbs and ls-style listings. Both share auth, ProxyJump, and host-key policy with the connect flow. For a full drag-and-drop uploader, pair with Remote-SSH."
+    },
+    {
+      "feature": "Serial / Telnet / raw TCP",
+      "supported": false,
+      "notes": "On roadmap. Today vsCRT handles SSH only."
+    },
+    {
+      "feature": "Session output recording",
+      "supported": false,
+      "notes": "Planned; `vsCRT.showConnectionHistory` logs start/end only today."
+    }
+  ],
+  "troubleshooting": [
+    {
+      "symptom": "Connect hangs or times out",
+      "diagnose": [
+        "Run `vsCRT: Test Connection` — classifies as connected / auth-failed / timeout / refused / no-route.",
+        "If the probe succeeds but the full connect hangs, check `vsCRT.hostKeyPolicy` — a modal fingerprint prompt may be blocked.",
+        "Temporarily add `-vvv` to `extraArgs` for verbose SSH debug output in the terminal."
+      ]
+    },
+    {
+      "symptom": "Host key has changed / MITM warning",
+      "diagnose": [
+        "Right-click the server → `Remove Host Key…` to clear the stale entry.",
+        "Reconnect — the TOFU modal shows the new SHA-256 fingerprint for you to verify.",
+        "For stricter environments, set `vsCRT.hostKeyPolicy` to `strict` and manage known_hosts externally."
+      ]
+    },
+    {
+      "symptom": "Permission denied on publickey auth",
+      "diagnose": [
+        "Confirm the identityFile path is the PRIVATE key (no `.pub`).",
+        "Status view shows whether ssh-agent is reachable — if so, leave `identityFile` blank to use agent keys.",
+        "Run `vsCRT: Generate SSH Key Pair` and use `Install Public Key Now` on the server form."
+      ]
+    },
+    {
+      "symptom": "Passphrase vault won't unlock",
+      "diagnose": [
+        "`vsCRT: Show Output Log` — look for Argon2id parameter mismatches.",
+        "If the params shifted after an upgrade, `vsCRT: Rotate Passphrase KDF Parameters` will re-key every blob.",
+        "Last resort: `vsCRT: Reset Passphrase Setup` — wipes the check token but leaves node ciphertexts; you'll re-enrol on next use."
+      ]
+    },
+    {
+      "symptom": "Config file won't parse",
+      "diagnose": [
+        "`vsCRT: Validate Config` pinpoints the JSON error with a pointer path.",
+        "`vsCRT: Restore Config from Backup…` rolls back to the most recent auto-saved backup (cap: 10).",
+        "For schema drift: open `~/.vscrt/vscrtConfig.json` in the editor — VS Code surfaces squiggles against the published schema."
+      ]
+    }
+  ]
+}

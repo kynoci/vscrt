@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# Cancel in-flight runs on the same ref when a new commit lands — saves
+# runner minutes on fast-iteration PRs without dropping the latest result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Keep going when one entry fails so a flaky Windows run doesn't hide
+      # a real Ubuntu/macOS failure (or vice versa).
+      fail-fast: false
+      matrix:
+        include:
+          # Primary: Node 20 (active LTS) and Node 22 (VS Code 1.106 ships 22).
+          - os: ubuntu-latest
+            node: 20
+          - os: ubuntu-latest
+            node: 22
+          # Platform-specific code paths (WSL probe, Windows sshpass detection,
+          # PowerShell command builders, /bin/bash paths) differ by OS — run
+          # on all three so we catch platform-only regressions before release.
+          - os: macos-latest
+            node: 22
+          - os: windows-latest
+            node: 22
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run check-types
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test (extension unit suite)
+        run: npm test
+
+      - name: Test (CLI companion)
+        run: npm run test:cli
+
+      - name: Build (production bundle)
+        run: node esbuild.js --production
+
+      # Integration tests drive a real VS Code Extension Development Host
+      # via @vscode/test-cli. On Linux the runner has no real display, so
+      # we wrap the run in xvfb. Gated on ubuntu+node22 to keep runner
+      # minutes low — the integration suite exercises activation + command
+      # wiring, which are OS-agnostic.
+      - name: Integration tests (VS Code host)
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '22'
+        run: xvfb-run -a npm run test:integration
+
+      # Perf-budget tests. Only on Linux-Node22 to avoid runtime-jitter
+      # flakes on Windows/macOS runners — this suite asserts latency
+      # budgets, so platform variance matters.
+      - name: Perf budgets
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '22'
+        run: npm run test:perf

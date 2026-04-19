@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="${csp}" />
+<link rel="stylesheet" href="${codiconsCssUri}" />
+<link rel="stylesheet" href="${cssUri}" />
+</head>
+<body>
+<div id="wrap">
+  <h2>${title}</h2>
+  <div class="target">
+    <i class="codicon codicon-folder"></i>
+    <span>${targetOrLocation}:</span>
+    <strong id="target-label">${targetLabel}</strong>
+  </div>
+
+  <div class="field">
+    <label for="name">Name<span class="req" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
+    <input id="name" type="text" placeholder="e.g. Prod Web 2" value="${nameValue}" required aria-required="true" aria-describedby="name-error" autofocus />
+    <div id="name-error" class="error" data-for="name" role="alert" aria-live="polite"></div>
+  </div>
+
+  <div class="field">
+    <label for="endpoint">SSH endpoint<span class="req" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
+    <input id="endpoint" type="text" placeholder="user@host or user@host:port" value="${endpointValue}" required aria-required="true" aria-describedby="endpoint-hint endpoint-error" />
+    <div id="endpoint-hint" class="hint">Append <code>:port</code> to override the default port 22.</div>
+    <div id="endpoint-error" class="error" data-for="endpoint" role="alert" aria-live="polite"></div>
+  </div>
+
+  <div class="field">
+    <label id="auth-label">Authentication<span class="req" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
+    <div class="radio-group" role="radiogroup" aria-labelledby="auth-label" aria-required="true">
+      <label class="radio"><input type="radio" name="auth" value="password" ${authPasswordChecked} /> Password</label>
+      <label class="radio"><input type="radio" name="auth" value="publickey" ${authPublickeyChecked} /> Public Key</label>
+    </div>
+  </div>
+
+  <fieldset id="sect-password" class="${sectPasswordHidden}">
+    <legend>Password</legend>
+    <div class="field">
+      <label for="password">Password<span class="req" id="password-req" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
+      <input id="password" type="password" autocomplete="new-password" placeholder="${passwordPlaceholder}" aria-describedby="password-error" />
+      <div id="password-error" class="error" data-for="password" role="alert" aria-live="polite"></div>
+    </div>
+    <div class="field">
+      <label id="storage-label">Storage</label>
+      <div class="radio-group" role="radiogroup" aria-labelledby="storage-label">
+        <label class="radio"><input type="radio" name="storage" value="secretstorage" ${storageSecretChecked} /> OS keychain (recommended)</label>
+        <label class="radio"><input type="radio" name="storage" value="passphrase" ${storagePassphraseChecked} /> Passphrase-encrypted in config</label>
+      </div>
+      <div class="hint">
+        OS keychain: only a reference ID is stored in <code>vscrtConfig.json</code>. Passphrase: Argon2id + AES-GCM ciphertext stored inline, portable across machines.
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset id="sect-publickey" class="${sectPublickeyHidden}">
+    <legend>Public Key</legend>
+    <div class="field">
+      <label for="identityFile">Private key path<span class="req" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
+      <input id="identityFile" type="text" placeholder="~/.ssh/id_ed25519" value="${identityFileValue}" aria-describedby="identityFile-hint identityFile-error" />
+      <div id="identityFile-hint" class="hint">Path to the PRIVATE key (not the <code>.pub</code> file).</div>
+      <div id="identityFile-error" class="error" data-for="identityFile" role="alert" aria-live="polite"></div>
+    </div>
+    <div class="field ${installFieldHidden}">
+      <label class="checkbox" for="installPublicKeyNow">
+        <input id="installPublicKeyNow" type="checkbox" aria-controls="sect-otp" />
+        Install public key to the server now
+      </label>
+    </div>
+    <div id="sect-otp" class="field hidden">
+      <label for="oneTimePassword">One-time SSH password<span class="req" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
+      <input id="oneTimePassword" type="password" autocomplete="new-password" aria-describedby="oneTimePassword-hint oneTimePassword-error" />
+      <div id="oneTimePassword-hint" class="hint">Used once to copy the public key to the server.</div>
+      <div id="oneTimePassword-error" class="error" data-for="oneTimePassword" role="alert" aria-live="polite"></div>
+    </div>
+  </fieldset>
+
+  <h3 class="section-title">Optional</h3>
+
+  <div class="field">
+    <label id="icon-label">Icon</label>
+    <div class="icon-select" id="icon-select">
+      <button type="button" id="icon-button" class="icon-select-button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="icon-label" aria-describedby="icon-hint icon-error">
+        <span id="icon-button-icon" class="icon-cell" aria-hidden="true"></span>
+        <span id="icon-button-label" class="icon-button-label">(default)</span>
+        <i class="codicon codicon-chevron-down icon-select-chevron" aria-hidden="true"></i>
+      </button>
+      <div id="icon-listbox-wrap" class="icon-select-menu hidden">
+        <div class="icon-select-search-row">
+          <i class="codicon codicon-search" aria-hidden="true"></i>
+          <input id="icon-select-search" type="text" class="icon-select-search" placeholder="Filter…" spellcheck="false" aria-label="Filter icons" autocomplete="off" />
+        </div>
+        <ul id="icon-listbox" role="listbox" aria-labelledby="icon-label" tabindex="-1">
+          <li role="option" data-value="" tabindex="-1" data-search="default">
+            <span class="icon-cell" aria-hidden="true"></span>
+            <span class="option-text"><span class="option-id">(default)</span></span>
+          </li>
+          ${iconPresetOptions}
+          <li role="option" data-value="__custom__" tabindex="-1" data-search="custom codicon">
+            <span class="icon-cell" aria-hidden="true"><i class="codicon codicon-edit"></i></span>
+            <span class="option-text"><span class="option-id">Custom codicon…</span></span>
+          </li>
+          <li id="icon-select-empty" class="icon-select-empty hidden" role="presentation">No matches</li>
+        </ul>
+      </div>
+    </div>
+    <div id="custom-icon-row" class="custom-icon-row hidden">
+      <span id="icon-preview" class="icon-cell" aria-hidden="true"></span>
+      <input id="icon" type="text" placeholder="codicon name (e.g. database)" value="${iconValue}" aria-label="Custom codicon name" />
+    </div>
+    <div id="icon-hint" class="hint">
+      Pick from the list, or choose "Custom codicon…" to type any <a href="https://microsoft.github.io/vscode-codicons/" target="_blank" rel="noopener">codicon</a> name (without the <code>codicon-</code> prefix).
+    </div>
+    <div id="icon-error" class="error" data-for="icon" role="alert" aria-live="polite"></div>
+  </div>
+
+  <div class="field">
+    <label id="termloc-label">Terminal location</label>
+    <div class="radio-group" role="radiogroup" aria-labelledby="termloc-label">
+      <label class="radio"><input type="radio" name="termloc" value="default" ${termLocDefaultChecked} /> Use user setting</label>
+      <label class="radio"><input type="radio" name="termloc" value="panel"   ${termLocPanelChecked} /> Panel (bottom)</label>
+      <label class="radio"><input type="radio" name="termloc" value="editor"  ${termLocEditorChecked} /> Editor (full tab)</label>
+    </div>
+    <div class="hint">
+      Per-node override. "Use user setting" falls back to <code>vsCRT.doubleClickTerminalLocation</code> / <code>vsCRT.buttonClickTerminalLocation</code> based on how Connect is invoked.
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="jumpHost">ProxyJump (bastion)</label>
+    <input id="jumpHost" type="text" placeholder="user@bastion.example.com" value="${jumpHostValue}" aria-describedby="jumpHost-hint jumpHost-error" />
+    <div id="jumpHost-hint" class="hint">
+      Optional. Tunnel through one or more bastion hosts. Comma-separate for multi-hop chains (e.g. <code>alice@jump1,bob@jump2</code>). Maps to <code>ssh -o ProxyJump=…</code> and works with either auth method.
+    </div>
+    <div id="jumpHost-error" class="error" data-for="jumpHost" role="alert" aria-live="polite"></div>
+  </div>
+
+  <details id="advanced-section">
+    <summary>Advanced — port forwards and terminal env</summary>
+
+    <div class="field">
+      <label for="portForwards">Port forwards</label>
+      <textarea id="portForwards" rows="3" placeholder="-L 3306:db.internal:3306&#10;-D 1080" aria-describedby="portForwards-hint portForwards-error">${portForwardsValue}</textarea>
+      <div id="portForwards-hint" class="hint">
+        One per line. Format: <code>-L &lt;localPort&gt;:&lt;host&gt;:&lt;remotePort&gt;</code> (local tunnel), <code>-R</code> (reverse), <code>-D &lt;port&gt;</code> (dynamic SOCKS proxy). Appended to the ssh command verbatim.
+      </div>
+      <div id="portForwards-error" class="error" data-for="portForwards" role="alert" aria-live="polite"></div>
+    </div>
+
+    <div class="field">
+      <label for="env">Terminal env vars</label>
+      <textarea id="env" rows="3" placeholder="TERM=xterm-256color&#10;LANG=en_US.UTF-8" aria-describedby="env-hint env-error">${envValue}</textarea>
+      <div id="env-hint" class="hint">
+        One <code>KEY=VALUE</code> per line. Set on the spawned terminal process, NOT forwarded to the remote host. For remote env, put <code>-o SetEnv=FOO=bar</code> in <code>extraArgs</code> above.
+      </div>
+      <div id="env-error" class="error" data-for="env" role="alert" aria-live="polite"></div>
+    </div>
+  </details>
+
+  <div id="buttons">
+    <button id="cancel" class="secondary" type="button">Cancel</button>
+    <button id="submit" class="primary" type="button">${submitLabel}</button>
+  </div>
+</div>
+<script nonce="${nonce}">window.__vscrtEditFlags = ${editFlagsJson};</script>
+<script nonce="${nonce}" src="${jsUri}"></script>
+</body>
+</html>

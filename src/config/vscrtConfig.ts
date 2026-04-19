@@ -1,102 +1,194 @@
-import * as vscode from "vscode";
 import * as os from "os";
-import * as path from "path";
-import { CRTSecretService, SECRET_PREFIX } from "./vscrtSecret";
+import * as vscode from "vscode";
+import * as vscrtPaths from "../fsPaths";
+import { log } from "../log";
+import { CRTSecretService } from "./vscrtSecret";
+import { createAndRotateBackup } from "./vscrtConfigBackup";
+import {
+  isSharedPath,
+  mergeSharedIntoConfig,
+  readSharedConfigFile,
+  resolveSharedConfigPath,
+  stripSharedFolder,
+} from "./sharedConfig";
+import {
+  CRTConfig,
+  CRTConfigCluster,
+  CRTConfigNode,
+  createDefaultConfig,
+} from "./vscrtConfigTypes";
+import {
+  collectRefs,
+  migrateLegacyKeys,
+  migrateLooseNodes,
+  migratePortField,
+} from "./vscrtConfigMigrations";
+import {
+  CURRENT_SCHEMA_VERSION,
+  runMigrations,
+} from "./vscrtConfigSchemaVersion";
+import {
+  extractClusterByPath,
+  extractNodeByPath,
+  findClusterByPath,
+  findNodeByName,
+  findNodeByPath,
+  findParent,
+  getContainers,
+  isCluster,
+  isDescendantPath,
+  lastSegment,
+  parentPathOf,
+  uniqueName,
+} from "./vscrtConfigPaths";
+import {
+  appendClusterToCluster,
+  appendNodeToCluster,
+  countClusterContents,
+  listAllFolderPaths,
+  listAllNodesInFolder,
+} from "./vscrtConfigUtil";
 
-/* -------------------------------------------------------
- *      DATA STRUCTURES FOR ~/.vscrt/vscrtConfig.json
- * -----------------------------------------------------*/
-
-export interface CRTConfig {
-  folder?: CRTConfigCluster[];
-  // Optional top-level settings. Config-file values beat VS Code user
-  // settings when resolving terminal location (but per-node overrides and
-  // the explicit "open in editor" button still win above them).
-  "vsCRT.doubleClickTerminalLocation"?: CRTTerminalLocation;
-  "vsCRT.buttonClickTerminalLocation"?: CRTTerminalLocation;
-}
-
-export interface CRTConfigCluster {
-  name: string;
-  icon?: string; // codicon name (without the "codicon-" prefix)
-  subfolder?: CRTConfigCluster[];
-  nodes?: CRTConfigNode[];
-}
-export type CRTAuthMethod = "password" | "publickey";
-export type CRTPasswordDelivery = "argv" | "tempfile" | "pipe";
-export type CRTPasswordStorage = "secretstorage" | "passphrase";
-export type CRTTerminalLocation = "panel" | "editor";
-export interface CRTConfigNode {
-  name: string;
-  endpoint: string;
-  icon?: string; // codicon name (without the "codicon-" prefix)
-  hostName?: string;
-  user?: string;
-  preferredAuthentication?: CRTAuthMethod;
-  identityFile?: string;
-  extraArgs?: string;
-  password?: string; // "@secret:<uuid>", "enc:v3:<...>", or legacy plaintext
-  passwordDelivery?: CRTPasswordDelivery;
-  passwordStorage?: CRTPasswordStorage; // opt-in: "passphrase" encrypts in-file via Argon2id+AES-GCM
-  terminalLocation?: CRTTerminalLocation; // per-node override; wins over user settings
-}
-
-/* -------------------------------------------------------
- *      DEFAULT CONFIG HELPER
- * -----------------------------------------------------*/
-
-function createDefaultConfig(): CRTConfig {
-  return {
-    folder: [
-      {
-        name: "Production",
-        nodes: [{ name: "Prod Web", endpoint: "deploy@prod-web" }],
-        subfolder: [
-          {
-            name: "Database",
-            nodes: [{ name: "Prod DB", endpoint: "postgres@prod-db" }],
-          },
-        ],
-      },
-      {
-        name: "Staging",
-        nodes: [{ name: "Staging Web", endpoint: "deploy@staging-web" }],
-      },
-    ],
-  };
-}
+/**
+ * Re-exports so the historical surface (types + previously-exported helpers
+ * used by tests and by modules that import `"./vscrtConfig"`) keeps working.
+ */
+export {
+  CRTConfig,
+  CRTConfigCluster,
+  CRTConfigNode,
+  CRTAuthMethod,
+  CRTLaunchProfile,
+  CRTLaunchTarget,
+  CRTNodeCommand,
+  CRTPasswordDelivery,
+  CRTPasswordStorage,
+  CRTTerminalLocation,
+} from "./vscrtConfigTypes";
+export {
+  migrateLegacyKeys,
+  migrateLooseNodes,
+  migratePortField,
+} from "./vscrtConfigMigrations";
+export { isDescendantPath, uniqueName } from "./vscrtConfigPaths";
 
 /* -------------------------------------------------------
  *      SERVICE: LOAD + CREATE ~/.vscrt/vscrtConfig.json
  * -----------------------------------------------------*/
 
 export class CRTConfigService {
-  private readonly folderName = ".vscrt";
-  private readonly fileName = "vscrtConfig.json";
   private migrationNoticeShown = false;
+
+  /**
+   * In-memory cache of the parsed config. Populated on first successful
+   * `loadConfig()` and kept in sync by `writeFile` on every disk write.
+   * Cleared by `invalidateCache()` — typically invoked by the file-system
+   * watcher set up in `activate()` when the user edits vscrtConfig.json
+   * externally.
+   */
+  private cachedConfig: CRTConfig | undefined;
+  /**
+   * In-flight `loadConfig` promise. Dedups concurrent callers (common
+   * during activation when both views query the config at the same time)
+   * so migrations and orphan pruning only run once per cold read.
+   */
+  private cachedLoadPromise: Promise<CRTConfig | undefined> | undefined;
+  /**
+   * Suppresses repeat recovery modals when the config stays broken across
+   * back-to-back loads (every tree refresh, every status tick). Cleared
+   * alongside the cache in `invalidateCache()` so a fresh external edit
+   * re-arms the prompt.
+   */
+  private recoveryPromptShown = false;
 
   constructor(
     private readonly secretService?: CRTSecretService,
     private readonly extensionUri?: vscode.Uri,
   ) {}
 
-  /** Load config (auto-creates folder + file if missing). */
+  /**
+   * Load config (auto-creates folder + file if missing). Returns the cached
+   * reference when available; otherwise parses from disk, runs migrations,
+   * and populates the cache.
+   *
+   * Callers may mutate the returned object — they must call `saveConfig` to
+   * persist. `writeFile` updates the cache on every successful disk write,
+   * so the cache stays consistent as long as every path ends in a save.
+   */
   async loadConfig(): Promise<CRTConfig | undefined> {
+    if (this.cachedConfig) {
+      return this.cachedConfig;
+    }
+    if (!this.cachedLoadPromise) {
+      this.cachedLoadPromise = log
+        .timed("loadConfig", () => this.loadConfigFromDisk(), { slowMs: 150 })
+        .finally(() => {
+          this.cachedLoadPromise = undefined;
+        });
+    }
+    return this.cachedLoadPromise;
+  }
+
+  /** Drop the cached config + any in-flight load. Next `loadConfig` re-reads disk. */
+  invalidateCache(): void {
+    this.cachedConfig = undefined;
+    this.cachedLoadPromise = undefined;
+    this.recoveryPromptShown = false;
+  }
+
+  private async loadConfigFromDisk(): Promise<CRTConfig | undefined> {
     try {
       const uri = await this.ensureConfigFile();
       const buf = await vscode.workspace.fs.readFile(uri);
       const text = Buffer.from(buf).toString("utf8").trim();
 
       if (!text) {
-        return {};
+        const empty: CRTConfig = {};
+        this.cachedConfig = empty;
+        return empty;
       }
 
-      const parsed = (JSON.parse(text) as CRTConfig) || {};
+      let parsed: CRTConfig;
+      try {
+        parsed = (JSON.parse(text) as CRTConfig) || {};
+      } catch (parseErr) {
+        log.error(
+          "vscrtConfig.json is not valid JSON — skipping load:",
+          parseErr,
+        );
+        this.showRecoveryPrompt(parseErr);
+        return undefined;
+      }
+      // First: check schema version. Forward-incompat files don't get
+      // migrations run on them — that would silently destroy fields a
+      // newer install knew how to read. Instead, surface the recovery
+      // modal and return undefined.
+      const versionResult = runMigrations(parsed);
+      if (versionResult.forwardIncompatible) {
+        log.error(
+          `vscrtConfig.json $schemaVersion=${versionResult.from} is newer than this extension supports (${CURRENT_SCHEMA_VERSION}). Refusing to migrate down.`,
+        );
+        this.showRecoveryPrompt(
+          new Error(
+            `Config was written by a newer vsCRT ($schemaVersion ${versionResult.from}). Install a newer extension or restore from a backup.`,
+          ),
+        );
+        return undefined;
+      }
+      // Always re-run the individual heuristic migrations too — they
+      // catch partial legacy state that wouldn't be stamped by a
+      // version bump alone. `runMigrations` does the same work but
+      // stamps `$schemaVersion`; duplicated calls are no-ops because
+      // each migration self-gates.
       const renamedKeys = migrateLegacyKeys(parsed);
       const looseMoved = migrateLooseNodes(parsed);
       const portsMerged = migratePortField(parsed);
       const config = parsed;
-      const schemaChanged = renamedKeys || looseMoved > 0 || portsMerged;
+      const schemaChanged =
+        versionResult.changed ||
+        renamedKeys ||
+        looseMoved > 0 ||
+        portsMerged;
 
       if (this.secretService) {
         const migrated = await this.sealLegacyPlaintext(config);
@@ -113,15 +205,57 @@ export class CRTConfigService {
 
       if (looseMoved > 0) {
         vscode.window.showInformationMessage(
-          `vsCRT: moved ${looseMoved} top-level server(s) into the "Unfiled" folder.`,
+          `vsCRT: moved ${looseMoved} top-level ${looseMoved === 1 ? "server" : "servers"} into the "Unfiled" folder.`,
         );
       }
 
-      return config;
+      // Merge in any team-shared configs. Gated on workspace trust so
+      // an attacker planting a shared-config path + file into an
+      // untrusted clone can't pull servers into the tree.
+      const merged = await this.applySharedOverlay(config);
+      this.cachedConfig = merged;
+      return merged;
     } catch (err) {
-      console.error("[vsCRT] Failed to load vscrtConfig.json:", err);
+      log.error("Failed to load vscrtConfig.json:", err);
       return undefined;
     }
+  }
+
+  /**
+   * Read `vsCRT.sharedConfigPaths`, load + sanitize each file, and
+   * append the synthetic "Shared (read-only)" folder to the returned
+   * config. Untrusted workspaces, empty settings, and parse-failure
+   * cases all no-op.
+   *
+   * Exported via this method (not a free function) because we need the
+   * VS Code workspace APIs.
+   */
+  private async applySharedOverlay(config: CRTConfig): Promise<CRTConfig> {
+    if (!vscode.workspace.isTrusted) {
+      return config;
+    }
+    const rawPaths = vscode.workspace
+      .getConfiguration("vsCRT")
+      .get<string[]>("sharedConfigPaths");
+    if (!Array.isArray(rawPaths) || rawPaths.length === 0) {
+      return config;
+    }
+    const homeDir = os.homedir();
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const clustersPerFile = await Promise.all(
+      rawPaths
+        .filter((p): p is string => typeof p === "string" && p.trim() !== "")
+        .map((raw) => {
+          const expanded = workspaceFolder
+            ? raw.replace(/\$\{workspaceFolder\}/g, workspaceFolder)
+            : raw;
+          const resolved = resolveSharedConfigPath(expanded, homeDir);
+          return readSharedConfigFile(resolved, (err) => {
+            log.warn(`shared config: failed to load ${resolved}:`, err);
+          });
+        }),
+    );
+    return mergeSharedIntoConfig(config, clustersPerFile);
   }
 
   /** Opens config file in VSCode editor. */
@@ -131,19 +265,23 @@ export class CRTConfigService {
       await vscode.window.showTextDocument(uri);
     } catch (err) {
       vscode.window.showErrorMessage("[vsCRT] Could not open config file.");
-      console.error("[vsCRT] openConfigFile error:", err);
+      log.error("openConfigFile error:", err);
     }
   }
 
   /** Save config object back to ~/.vscrt/vscrtConfig.json */
   async saveConfig(config: CRTConfig): Promise<void> {
+    // Shared overlay MUST NEVER round-trip into the personal config
+    // file. Strip it before everything else so seal/prune operate on
+    // the real user tree only.
+    const toWrite = stripSharedFolder(config);
     const uri = await this.ensureConfigFile();
     if (this.secretService) {
-      await this.sealLegacyPlaintext(config);
+      await this.sealLegacyPlaintext(toWrite);
     }
-    await this.writeFile(uri, config);
+    await this.writeFile(uri, toWrite);
     if (this.secretService) {
-      await this.secretService.pruneOrphans(collectRefs(config));
+      await this.secretService.pruneOrphans(collectRefs(toWrite));
     }
   }
 
@@ -234,9 +372,7 @@ export class CRTConfigService {
     try {
       config = text ? (JSON.parse(text) as CRTConfig) || {} : {};
     } catch {
-      console.warn(
-        "[vsCRT] appendNode: invalid JSON, starting from empty config",
-      );
+      log.warn("appendNode: invalid JSON, starting from empty config");
       config = {};
     }
 
@@ -252,14 +388,14 @@ export class CRTConfigService {
     if (!config.folder) {
       config.folder = [];
     }
-    const added = this.appendNodeToClusterList(
+    const added = appendNodeToCluster(
       config.folder,
       targetClusterName,
       node,
     );
     if (!added) {
-      console.warn(
-        `[vsCRT] appendNode: folder "${targetClusterName}" not found in config.`,
+      log.warn(
+        `appendNode: folder "${targetClusterName}" not found in config.`,
       );
       return false;
     }
@@ -268,61 +404,40 @@ export class CRTConfigService {
     return true;
   }
 
-  private appendNodeToClusterList(
-    clusters: CRTConfigCluster[],
-    targetName: string,
-    node: CRTConfigNode,
-  ): boolean {
-    for (const c of clusters) {
-      if (c.name === targetName) {
-        if (!c.nodes) {
-          c.nodes = [];
-        }
-        c.nodes.push(node);
-        return true;
-      }
-
-      if (
-        c.subfolder &&
-        this.appendNodeToClusterList(c.subfolder, targetName, node)
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   private async ensureConfigFile(): Promise<vscode.Uri> {
-    const home = os.homedir();
-
-    const folderPath = path.join(home, this.folderName);
-    const folderUri = vscode.Uri.file(folderPath);
+    const folderUri = vscode.Uri.file(vscrtPaths.vscrtHomeDir());
 
     await vscode.workspace.fs.createDirectory(folderUri);
 
-    const filePath = path.join(folderPath, this.fileName);
+    const filePath = vscrtPaths.vscrtConfigFilePath();
     const fileUri = vscode.Uri.file(filePath);
 
     try {
       await vscode.workspace.fs.stat(fileUri);
       return fileUri;
     } catch {
-      const buffer = await this.readBundledExample();
+      // First-run: seed with an empty `{"folder": []}` so the user sees
+      // the welcome walkthrough + empty-state. A rich example is
+      // available opt-in via the "Load Example" button in the empty
+      // state (→ `vsCRT.loadExample`).
+      const buffer = Buffer.from(
+        JSON.stringify(createDefaultConfig(), null, 2),
+        "utf8",
+      );
       await vscode.workspace.fs.writeFile(fileUri, buffer);
 
-      console.log("[vsCRT] Created new vscrtConfig.json:", filePath);
+      log.info("Created new vscrtConfig.json:", filePath);
       return fileUri;
     }
   }
 
   /**
-   * Return the bytes that should seed a brand-new vscrtConfig.json. Prefers
-   * the bundled `vscrtConfigExample.json` at the extension root (so users can
-   * hand-edit the canonical example). Falls back to the hardcoded default if
-   * the file can't be read — e.g. because the extension was packaged without
-   * it.
+   * Read the bundled `vscrtConfigExample.json` file (shipped at the
+   * extension root) and return its raw bytes. Used by the "Load
+   * Example" flow so users can opt in to a populated demo tree from
+   * the Connection view's empty-state.
    */
-  private async readBundledExample(): Promise<Uint8Array> {
+  async readBundledExample(): Promise<Uint8Array> {
     if (this.extensionUri) {
       const exampleUri = vscode.Uri.joinPath(
         this.extensionUri,
@@ -331,8 +446,8 @@ export class CRTConfigService {
       try {
         return await vscode.workspace.fs.readFile(exampleUri);
       } catch (err) {
-        console.warn(
-          "[vsCRT] Could not read bundled example config; using built-in default.",
+        log.warn(
+          "Could not read bundled example config; using built-in default.",
           err,
         );
       }
@@ -344,13 +459,33 @@ export class CRTConfigService {
   }
 
   private async writeFile(uri: vscode.Uri, config: CRTConfig): Promise<void> {
+    // Snapshot the prior on-disk file before overwriting. If this is the
+    // first-ever save there's nothing to back up and createAndRotateBackup
+    // returns null silently. Failures here MUST NOT block the save — a
+    // crashed backup is better than a lost user edit — so they're logged
+    // and swallowed.
+    try {
+      const backupsDir = vscrtPaths.vscrtBackupsDir();
+      const backupPath = await createAndRotateBackup(uri.fsPath, backupsDir);
+      if (backupPath) {
+        log.debug(`Backed up vscrtConfig.json to ${backupPath}`);
+      }
+    } catch (err) {
+      log.warn("Backup before save failed (save will still proceed):", err);
+    }
+
     const newText = JSON.stringify(config, null, 2);
     await vscode.workspace.fs.writeFile(uri, Buffer.from(newText, "utf8"));
+    // Keep cache in sync with disk on every write path (saveConfig,
+    // appendNode, appendCluster, updatePassword, setPasswordStorage, and
+    // the migration-on-load branch in loadConfigFromDisk all route here).
+    this.cachedConfig = config;
   }
 
   /** Seal any plaintext password fields in-place.  Returns count migrated. */
   private async sealLegacyPlaintext(config: CRTConfig): Promise<number> {
-    if (!this.secretService) {
+    const secrets = this.secretService;
+    if (!secrets) {
       return 0;
     }
     let count = 0;
@@ -359,10 +494,10 @@ export class CRTConfigService {
         if (!n.password) {
           continue;
         }
-        if (this.secretService!.isLegacyPlaintext(n.password)) {
+        if (secrets.isLegacyPlaintext(n.password)) {
           const mode =
             n.passwordStorage === "passphrase" ? "passphrase" : "secretstorage";
-          n.password = await this.secretService!.seal(n.password, mode);
+          n.password = await secrets.seal(n.password, mode);
           count += 1;
         }
       }
@@ -383,6 +518,41 @@ export class CRTConfigService {
       await walkClusters(config.folder);
     }
     return count;
+  }
+
+  /**
+   * Non-blocking recovery modal fired when vscrtConfig.json fails to parse.
+   * Offers three escapes: open the file in the editor, restore from a rolling
+   * backup, or reset to an empty config. Each option delegates to a
+   * dedicated command so the logic stays in one place and is testable on
+   * its own. Suppressed after the first firing per cache cycle — the watcher
+   * clears that latch on the next external edit.
+   */
+  private showRecoveryPrompt(err: unknown): void {
+    if (this.recoveryPromptShown) {
+      return;
+    }
+    this.recoveryPromptShown = true;
+    const openConfig = "Open Config";
+    const restore = "Restore from Backup…";
+    const detail =
+      err instanceof Error
+        ? err.message
+        : "The file could not be parsed as JSON.";
+    void vscode.window
+      .showErrorMessage(
+        "vsCRT: vscrtConfig.json is corrupted or not valid JSON. Your server list is temporarily unavailable.",
+        { modal: true, detail },
+        openConfig,
+        restore,
+      )
+      .then((pick) => {
+        if (pick === openConfig) {
+          void vscode.commands.executeCommand("vsCRT.openConfig");
+        } else if (pick === restore) {
+          void vscode.commands.executeCommand("vsCRT.restoreConfigBackup");
+        }
+      });
   }
 
   private announceMigration(count: number): void {
@@ -412,9 +582,7 @@ export class CRTConfigService {
     try {
       config = text ? (JSON.parse(text) as CRTConfig) || {} : {};
     } catch {
-      console.warn(
-        "[vsCRT] appendCluster: invalid JSON, starting from empty config",
-      );
+      log.warn("appendCluster: invalid JSON, starting from empty config");
       config = {};
     }
 
@@ -433,14 +601,14 @@ export class CRTConfigService {
       if (!config.folder) {
         config.folder = [];
       }
-      const added = this.appendClusterToClusterList(
+      const added = appendClusterToCluster(
         config.folder,
         parentClusterName,
         newCluster,
       );
       if (!added) {
-        console.warn(
-          `[vsCRT] appendCluster: parent "${parentClusterName}" not found in config.`,
+        log.warn(
+          `appendCluster: parent "${parentClusterName}" not found in config.`,
         );
         return false;
       }
@@ -448,30 +616,6 @@ export class CRTConfigService {
 
     await this.writeFile(uri, config);
     return true;
-  }
-
-  private appendClusterToClusterList(
-    clusters: CRTConfigCluster[],
-    targetName: string,
-    childCluster: CRTConfigCluster,
-  ): boolean {
-    for (const c of clusters) {
-      if (c.name === targetName) {
-        if (!c.subfolder) {
-          c.subfolder = [];
-        }
-        c.subfolder.push(childCluster);
-        return true;
-      }
-
-      if (
-        c.subfolder &&
-        this.appendClusterToClusterList(c.subfolder, targetName, childCluster)
-      ) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /* -------------------------------------------------------
@@ -484,6 +628,9 @@ export class CRTConfigService {
    * level. Returns false if the cluster isn't found or the rename is invalid.
    */
   async renameCluster(path: string, newName: string): Promise<boolean> {
+    if (isSharedPath(path)) {
+      return false;
+    }
     const trimmed = newName.trim();
     if (!trimmed || trimmed.includes("/")) {
       return false;
@@ -528,6 +675,9 @@ export class CRTConfigService {
     oldPath: string,
     newNode: CRTConfigNode,
   ): Promise<boolean> {
+    if (isSharedPath(oldPath)) {
+      return false;
+    }
     const cfg = await this.loadConfig();
     if (!cfg) {
       return false;
@@ -535,7 +685,6 @@ export class CRTConfigService {
     const name = oldPath.split("/").pop() ?? oldPath;
     const lastSlash = oldPath.lastIndexOf("/");
     if (lastSlash < 0) {
-      // Servers must live inside a folder; a root-level path is invalid.
       return false;
     }
     const parent = findClusterByPath(cfg, oldPath.substring(0, lastSlash));
@@ -561,6 +710,9 @@ export class CRTConfigService {
    * isn't found.
    */
   async duplicateNode(path: string): Promise<string | null> {
+    if (isSharedPath(path)) {
+      return null;
+    }
     const cfg = await this.loadConfig();
     if (!cfg) {
       return null;
@@ -605,6 +757,9 @@ export class CRTConfigService {
 
   /** Remove the node at `path`. Returns false if not found. */
   async deleteNode(path: string): Promise<boolean> {
+    if (isSharedPath(path)) {
+      return false;
+    }
     const cfg = await this.loadConfig();
     if (!cfg) {
       return false;
@@ -623,6 +778,9 @@ export class CRTConfigService {
    * saveConfig's orphan sweep. Returns false if not found.
    */
   async deleteCluster(path: string): Promise<boolean> {
+    if (isSharedPath(path)) {
+      return false;
+    }
     const cfg = await this.loadConfig();
     if (!cfg) {
       return false;
@@ -640,67 +798,19 @@ export class CRTConfigService {
     path: string,
   ): Promise<{ nodes: number; subfolder: number } | null> {
     const cfg = await this.loadConfig();
-    if (!cfg) {
-      return null;
-    }
-    const cluster = findClusterByPath(cfg, path);
-    if (!cluster) {
-      return null;
-    }
-    let nodes = 0;
-    let subfolder = 0;
-    const walk = (c: CRTConfigCluster): void => {
-      nodes += c.nodes?.length ?? 0;
-      for (const s of c.subfolder ?? []) {
-        subfolder += 1;
-        walk(s);
-      }
-    };
-    walk(cluster);
-    return { nodes, subfolder };
+    return cfg ? countClusterContents(cfg, path) : null;
   }
 
   /** Return every folder's slash-joined path, depth-first. */
   async getAllFolderPaths(): Promise<string[]> {
     const cfg = await this.loadConfig();
-    if (!cfg?.folder) {
-      return [];
-    }
-    const out: string[] = [];
-    const walk = (list: CRTConfigCluster[], prefix: string): void => {
-      for (const c of list) {
-        const p = prefix ? `${prefix}/${c.name}` : c.name;
-        out.push(p);
-        if (c.subfolder) {
-          walk(c.subfolder, p);
-        }
-      }
-    };
-    walk(cfg.folder, "");
-    return out;
+    return cfg ? listAllFolderPaths(cfg) : [];
   }
 
   /** Collect every node under a folder path (direct + nested in subfolders). */
   async getAllNodesInFolder(path: string): Promise<CRTConfigNode[] | null> {
     const cfg = await this.loadConfig();
-    if (!cfg) {
-      return null;
-    }
-    const cluster = findClusterByPath(cfg, path);
-    if (!cluster) {
-      return null;
-    }
-    const out: CRTConfigNode[] = [];
-    const walk = (c: CRTConfigCluster): void => {
-      for (const n of c.nodes ?? []) {
-        out.push(n);
-      }
-      for (const s of c.subfolder ?? []) {
-        walk(s);
-      }
-    };
-    walk(cluster);
-    return out;
+    return cfg ? listAllNodesInFolder(cfg, path) : null;
   }
 
   /** Resolve a node by slash-joined path (e.g. "Production/Database/Prod DB"). */
@@ -721,6 +831,9 @@ export class CRTConfigService {
     kind: "cluster" | "subcluster" | "node",
     icon: string | undefined,
   ): Promise<boolean> {
+    if (isSharedPath(itemPath)) {
+      return false;
+    }
     const cfg = await this.loadConfig();
     if (!cfg) {
       return false;
@@ -763,6 +876,11 @@ export class CRTConfigService {
     targetKind: "cluster" | "subcluster" | "node" | undefined,
     position: "before" | "after" | "inside",
   ): Promise<boolean> {
+    // Block drag-drop in or out of the shared overlay — it isn't
+    // writable, and a drop-out would silently lose the entry.
+    if (isSharedPath(sourcePath) || isSharedPath(targetPath)) {
+      return false;
+    }
     const cfg = await this.loadConfig();
     if (!cfg) {
       return false;
@@ -835,6 +953,10 @@ export class CRTConfigService {
     if (targetPath && targetPath === sourcePath) {
       return false;
     }
+    // Block moves into/out of the shared overlay.
+    if (isSharedPath(sourcePath) || isSharedPath(targetPath)) {
+      return false;
+    }
 
     const cfg = await this.loadConfig();
     if (!cfg) {
@@ -890,329 +1012,4 @@ export class CRTConfigService {
     await this.saveConfig(cfg);
     return true;
   }
-}
-
-/* -------------------------------------------------------
- *      HELPERS
- * -----------------------------------------------------*/
-
-/**
- * One-shot rename of legacy JSON keys: { "clusters": [...] } → { "folder": [...] }
- * and nested "subclusters" → "subfolder". Mutates the config in place.
- * Returns true if anything was renamed (caller should persist).
- */
-function migrateLegacyKeys(config: CRTConfig): boolean {
-  const raw = config as unknown as Record<string, unknown>;
-  let changed = false;
-
-  if (Array.isArray(raw.clusters) && !Array.isArray(raw.folder)) {
-    raw.folder = raw.clusters;
-    delete raw.clusters;
-    changed = true;
-  }
-
-  const walk = (arr: unknown): void => {
-    if (!Array.isArray(arr)) {
-      return;
-    }
-    for (const item of arr) {
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-      const node = item as Record<string, unknown>;
-      if (Array.isArray(node.subclusters) && !Array.isArray(node.subfolder)) {
-        node.subfolder = node.subclusters;
-        delete node.subclusters;
-        changed = true;
-      }
-      if (Array.isArray(node.subfolder)) {
-        walk(node.subfolder);
-      }
-    }
-  };
-  walk(raw.folder);
-  return changed;
-}
-
-/**
- * Older configs stored the SSH port in a separate `port` field. The schema
- * now folds the port into the endpoint string (e.g. "user@host:2201"). This
- * migration merges any legacy `port` into `endpoint` and drops the field.
- * Mutates the config in place; returns the count of nodes whose endpoint
- * string actually changed.
- */
-function migratePortField(config: CRTConfig): boolean {
-  let changed = false;
-  const hasPortSuffix = /:\d+$/;
-  const walkNodes = (nodes: CRTConfigNode[]): void => {
-    for (const n of nodes) {
-      const raw = n as unknown as Record<string, unknown>;
-      const p = raw.port;
-      if (typeof p === "number") {
-        const ep = typeof n.endpoint === "string" ? n.endpoint.trim() : "";
-        if (ep && p !== 22 && !hasPortSuffix.test(ep)) {
-          n.endpoint = `${ep}:${p}`;
-        }
-        delete raw.port;
-        changed = true;
-      } else if (p !== undefined) {
-        delete raw.port;
-        changed = true;
-      }
-    }
-  };
-  const walkClusters = (cs: CRTConfigCluster[]): void => {
-    for (const c of cs) {
-      if (c.nodes) {
-        walkNodes(c.nodes);
-      }
-      if (c.subfolder) {
-        walkClusters(c.subfolder);
-      }
-    }
-  };
-  if (config.folder) {
-    walkClusters(config.folder);
-  }
-  return changed;
-}
-
-/**
- * Loose servers at the config root are no longer supported. If any are found
- * (e.g. from an older schema), move them into an "Unfiled" folder so no user
- * data is lost. Mutates the config in place; returns the count migrated.
- */
-function migrateLooseNodes(config: CRTConfig): number {
-  const raw = config as unknown as Record<string, unknown>;
-  const loose = raw.nodes;
-  if (!Array.isArray(loose)) {
-    return 0;
-  }
-  if (loose.length === 0) {
-    delete raw.nodes;
-    return 0;
-  }
-  config.folder = config.folder ?? [];
-  let unfiled = config.folder.find((f) => f.name === "Unfiled");
-  if (!unfiled) {
-    unfiled = { name: "Unfiled", nodes: [], subfolder: [] };
-    config.folder.push(unfiled);
-  }
-  unfiled.nodes = unfiled.nodes ?? [];
-  unfiled.nodes.push(...(loose as CRTConfigNode[]));
-  delete raw.nodes;
-  return loose.length;
-}
-
-function collectRefs(config: CRTConfig): string[] {
-  const refs: string[] = [];
-  const walkNodes = (nodes: CRTConfigNode[]): void => {
-    for (const n of nodes) {
-      if (n.password && n.password.startsWith(SECRET_PREFIX)) {
-        refs.push(n.password);
-      }
-    }
-  };
-  const walkClusters = (clusters: CRTConfigCluster[]): void => {
-    for (const c of clusters) {
-      if (c.nodes) {
-        walkNodes(c.nodes);
-      }
-      if (c.subfolder) {
-        walkClusters(c.subfolder);
-      }
-    }
-  };
-  if (config.folder) {
-    walkClusters(config.folder);
-  }
-  return refs;
-}
-
-function findNodeByName(
-  config: CRTConfig,
-  name: string,
-): CRTConfigNode | undefined {
-  const walkNodes = (nodes: CRTConfigNode[]): CRTConfigNode | undefined =>
-    nodes.find((n) => n.name === name);
-  const walkClusters = (
-    clusters: CRTConfigCluster[],
-  ): CRTConfigNode | undefined => {
-    for (const c of clusters) {
-      if (c.nodes) {
-        const hit = walkNodes(c.nodes);
-        if (hit) {
-          return hit;
-        }
-      }
-      if (c.subfolder) {
-        const hit = walkClusters(c.subfolder);
-        if (hit) {
-          return hit;
-        }
-      }
-    }
-    return undefined;
-  };
-  if (config.folder) {
-    const hit = walkClusters(config.folder);
-    if (hit) {
-      return hit;
-    }
-  }
-  return undefined;
-}
-
-/* -------------------------------------------------------
- *      PATH-BASED HELPERS
- * -----------------------------------------------------*/
-
-function lastSegment(path: string): string {
-  const i = path.lastIndexOf("/");
-  return i < 0 ? path : path.substring(i + 1);
-}
-
-function parentPathOf(path: string): string | null {
-  const i = path.lastIndexOf("/");
-  return i < 0 ? null : path.substring(0, i);
-}
-
-/**
- * Return `base` if it doesn't collide with `existing`; otherwise append
- * " 2", " 3", … until unique.
- */
-function uniqueName(base: string, existing: readonly string[]): string {
-  const taken = new Set(existing);
-  if (!taken.has(base)) {
-    return base;
-  }
-  for (let i = 2; ; i += 1) {
-    const candidate = `${base} ${i}`;
-    if (!taken.has(candidate)) {
-      return candidate;
-    }
-  }
-}
-
-function isDescendantPath(ancestor: string, candidate: string): boolean {
-  return candidate.startsWith(ancestor + "/");
-}
-
-function findClusterByPath(
-  cfg: CRTConfig,
-  path: string,
-): CRTConfigCluster | null {
-  const segments = path.split("/");
-  let list: CRTConfigCluster[] | undefined = cfg.folder;
-  let found: CRTConfigCluster | null = null;
-  for (const seg of segments) {
-    if (!list) {
-      return null;
-    }
-    found = list.find((c) => c.name === seg) ?? null;
-    if (!found) {
-      return null;
-    }
-    list = found.subfolder;
-  }
-  return found;
-}
-
-function findNodeByPath(
-  cfg: CRTConfig,
-  path: string,
-): CRTConfigNode | null {
-  const name = lastSegment(path);
-  const parentP = parentPathOf(path);
-  if (parentP === null) {
-    return null;
-  }
-  const parent = findClusterByPath(cfg, parentP);
-  return parent?.nodes?.find((n) => n.name === name) ?? null;
-}
-
-function findParent(
-  cfg: CRTConfig,
-  path: string,
-): CRTConfig | CRTConfigCluster | null {
-  const parentP = parentPathOf(path);
-  if (parentP === null) {
-    return cfg;
-  }
-  return findClusterByPath(cfg, parentP);
-}
-
-/**
- * Returns the clusters and nodes arrays of a parent container, lazily
- * initializing either if missing. Works for both the root config and a
- * CRTConfigCluster.
- */
-function isCluster(
-  parent: CRTConfig | CRTConfigCluster,
-): parent is CRTConfigCluster {
-  return (parent as CRTConfigCluster).name !== undefined;
-}
-
-function getContainers(parent: CRTConfig | CRTConfigCluster): {
-  clusters: CRTConfigCluster[];
-  nodes: CRTConfigNode[];
-} {
-  if (isCluster(parent)) {
-    parent.subfolder = parent.subfolder ?? [];
-    parent.nodes = parent.nodes ?? [];
-    return { clusters: parent.subfolder, nodes: parent.nodes };
-  }
-  parent.folder = parent.folder ?? [];
-  // Root has no `nodes` container — servers must live inside a folder.
-  return { clusters: parent.folder, nodes: [] };
-}
-
-function extractNodeByPath(
-  cfg: CRTConfig,
-  path: string,
-): CRTConfigNode | null {
-  const name = lastSegment(path);
-  const parentP = parentPathOf(path);
-  if (parentP === null) {
-    return null;
-  }
-  const parent = findClusterByPath(cfg, parentP);
-  if (!parent || !parent.nodes) {
-    return null;
-  }
-  const idx = parent.nodes.findIndex((n) => n.name === name);
-  if (idx < 0) {
-    return null;
-  }
-  return parent.nodes.splice(idx, 1)[0];
-}
-
-function extractClusterByPath(
-  cfg: CRTConfig,
-  path: string,
-): CRTConfigCluster | null {
-  const name = lastSegment(path);
-  const parentP = parentPathOf(path);
-
-  if (parentP === null) {
-    const arr = cfg.folder;
-    if (!arr) {
-      return null;
-    }
-    const idx = arr.findIndex((c) => c.name === name);
-    if (idx < 0) {
-      return null;
-    }
-    return arr.splice(idx, 1)[0];
-  }
-
-  const parent = findClusterByPath(cfg, parentP);
-  if (!parent || !parent.subfolder) {
-    return null;
-  }
-  const idx = parent.subfolder.findIndex((c) => c.name === name);
-  if (idx < 0) {
-    return null;
-  }
-  return parent.subfolder.splice(idx, 1)[0];
 }

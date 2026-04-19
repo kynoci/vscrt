@@ -1,0 +1,629 @@
+/* SFTP Browser (preview) — remote file-manager panel styling. */
+
+:root {
+  color-scheme: var(--vscode-colorScheme);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Toolbar ---------- */
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-sideBar-background);
+  flex-wrap: wrap;
+}
+
+#preview-badge {
+  font-size: 0.78em;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#toolbar button {
+  font-family: inherit;
+  font-size: inherit;
+  /* Lock a consistent line-box so emoji-bearing buttons (👁 Hidden,
+     ⬆ Upload) don't render taller than plain-symbol ones (↻ Refresh,
+     ✕ Cancel). Without this, emojis push the line-box ~2px taller
+     and the buttons look unaligned. */
+  line-height: 1.4;
+  min-height: 26px;
+  box-sizing: border-box;
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  background: var(--vscode-button-secondaryBackground, var(--vscode-toolbar-hoverBackground));
+  border: 1px solid transparent;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#toolbar button:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+
+#toolbar button:focus-visible,
+#filter-input:focus-visible,
+#path-input:focus-visible,
+#local-path-input:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+#toolbar button[aria-pressed="true"] {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+#path-bar {
+  flex: 1 1 auto;
+  min-width: 120px;
+  display: flex;
+  align-items: stretch;
+  /* The editable-on-click behaviour uses the whole bar as the hit
+     target; show a caret so users discover it without a tooltip. */
+  cursor: text;
+}
+
+#path-bar[data-mode="edit"] #breadcrumbs {
+  display: none;
+}
+
+#path-bar[data-mode="crumbs"] #path-input {
+  display: none;
+}
+
+#path-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 3px 6px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 3px;
+}
+
+#breadcrumbs {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#breadcrumbs .crumb {
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 2px;
+  color: var(--vscode-textLink-foreground);
+}
+
+#breadcrumbs .crumb:hover,
+#breadcrumbs .crumb:focus-visible {
+  background: var(--vscode-list-hoverBackground);
+  outline: none;
+}
+
+#breadcrumbs .sep {
+  opacity: 0.55;
+}
+
+/* Filter input lives inline in the toolbar. `flex: 1 1 auto` makes it
+   absorb the slack between itself and the action-button cluster on the
+   right; `min-width: 0` lets it shrink below its content width so the
+   toolbar can wrap cleanly in narrow panels. */
+#toolbar #filter-input {
+  flex: 1 1 auto;
+  min-width: 120px;
+  padding: 3px 6px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: inherit;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 3px;
+}
+
+#spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--vscode-descriptionForeground);
+  border-top-color: transparent;
+  border-radius: 50%;
+  display: none;
+}
+
+#spinner.busy {
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Split-button group (e.g. the ⇆ Local toolbar entry). The two
+ * halves butt up against each other with a thin divider; the main
+ * half keeps its standard rounded corners on the left, the caret
+ * half on the right. */
+.split-btn {
+  display: inline-flex;
+  align-items: stretch;
+}
+.split-btn > button {
+  border-radius: 0;
+  margin: 0;
+}
+.split-btn > button:first-child {
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+  border-right: 1px solid var(--vscode-panel-border);
+}
+.split-btn > button:last-child {
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  padding-left: 5px;
+  padding-right: 5px;
+  font-size: 0.85em;
+}
+.split-btn > button:focus-visible {
+  z-index: 1; /* outline stays visible over the divider */
+}
+
+/* Split-button halves highlight in unison — hovering or pressing
+   either side paints both so the group reads as one control even
+   though its click targets are separate. */
+.split-btn:hover > button {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+.split-btn:has(> button[aria-pressed="true"]) > button {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+.split-btn:has(> button[aria-pressed="true"]):hover > button {
+  /* Keep the pressed-state color on hover so the highlight doesn't
+     regress to the secondary hover background while the pane is open. */
+  background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
+}
+
+/* Toolbar dropdown (anchored below a split-button caret). Shares
+ * visual language with #ctxmenu but lighter — no danger color, no
+ * separator lines. */
+#toolbar-menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 180px;
+  background: var(--vscode-menu-background, var(--vscode-editor-background));
+  color: var(--vscode-menu-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, transparent);
+  padding: 4px 0;
+}
+#toolbar-menu .item {
+  padding: 4px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#toolbar-menu .item:hover,
+#toolbar-menu .item:focus-visible {
+  background: var(--vscode-menu-selectionBackground,
+    var(--vscode-list-hoverBackground));
+  color: var(--vscode-menu-selectionForeground,
+    var(--vscode-list-hoverForeground));
+  outline: none;
+}
+
+
+/* ---------- Status bar ---------- */
+
+#status-bar {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 0.88em;
+  color: var(--vscode-descriptionForeground);
+  min-height: 1.2em;
+}
+
+#status-bar.error {
+  color: var(--vscode-errorForeground);
+}
+
+#status-bar.success {
+  color: var(--vscode-terminal-ansiGreen, var(--vscode-descriptionForeground));
+}
+
+/* ---------- Table ---------- */
+
+/*
+ * Row-height contract
+ * -------------------
+ * Every `#listing` / `#local-listing` body row is pinned to exactly
+ * `--sftp-row-height` pixels. Virtualization in sftpBrowser.js reads
+ * `ROW_HEIGHT_PX = 24` and uses it to compute scroll windows and
+ * spacer heights — the two MUST match. If you change the value here,
+ * update `ROW_HEIGHT_PX` in sftpBrowser.js (and vice-versa).
+ */
+:root {
+  --sftp-row-height: 24px;
+}
+
+/* Scroll container — Chromium ignores `overflow: auto` on `<table>`
+ * elements, so the parent div is what actually creates the scroll
+ * viewport. Both `#listing-scroll` and `#local-listing-scroll` share
+ * this rule via the `.table-scroll` class. The sticky `<thead>` still
+ * works because the table is the direct child of the scroll ancestor.
+ * Virtualization reads scrollTop / clientHeight off these wrappers
+ * (see `media/sftpBrowser/virtualization.js`). */
+.table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  /* Width binds to parent so the contained table can still use
+   * `width: 100%; table-layout: fixed`. */
+  width: 100%;
+}
+
+#listing {
+  border-collapse: collapse;
+  width: 100%;
+  /* Virtualization needs predictable column widths — `table-layout:
+   * fixed` stops a re-render with a narrower window of rows from
+   * reshuffling column sizes based on the new (partial) content. */
+  table-layout: fixed;
+}
+
+#listing col.c-name { width: auto; }
+#listing col.c-size { width: 80px; }
+#listing col.c-mtime { width: 160px; }
+#listing col.c-perms { width: 110px; }
+
+#local-listing col.c-perms { width: 110px; }
+
+/* Pinned row height — min-height, not height, so browsers render
+ * `tr { height: … }` consistently across Chromium / Firefox. td
+ * padding is tuned so (pad-top + line-height + pad-bottom) ≤ the
+ * row height, avoiding content-driven expansion. */
+#listing tbody tr,
+#local-listing tbody tr {
+  height: var(--sftp-row-height);
+}
+#listing tbody tr > td,
+#local-listing tbody tr > td {
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Virtual-mode spacer rows: hold scroll height for unrendered entries
+ * without hover/cursor/border chrome. */
+#listing tbody tr.virtual-spacer {
+  cursor: default;
+  background: transparent;
+}
+#listing tbody tr.virtual-spacer:hover {
+  background: transparent;
+}
+#listing tbody tr.virtual-spacer td {
+  padding: 0;
+  border: 0;
+}
+
+/* ---------- E1 / Two-pane layout ---------- */
+
+#panes {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#panes .pane {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--vscode-panel-border);
+}
+
+#panes .pane:last-of-type { border-right: 0; }
+
+/* Default (single-pane) layout: hide the local pane entirely so the
+ * remote pane fills the container. When toggled on, the [hidden]
+ * attribute is removed and both panes share space 50/50. */
+#panes #local-pane[hidden] { display: none; }
+
+.pane-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 0.9em;
+}
+
+.pane-header .pane-title {
+  font-weight: 500;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* Buttons that sit inline inside a pane header (currently just the
+   remote-pane "↑" Up button). Smaller than the main toolbar buttons
+   since the header itself is 0.9em and the target is a single glyph. */
+.pane-header-btn {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1;
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.pane-header-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+.pane-header-btn:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+#local-path-input {
+  flex: 1;
+  padding: 2px 6px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  border: 1px solid var(--vscode-input-border, transparent);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 2px;
+}
+#local-path-input:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+#local-listing {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+#local-listing thead { position: sticky; top: 0; background: var(--vscode-sideBar-background); z-index: 1; }
+#local-listing th, #local-listing td {
+  text-align: left;
+  padding: 2px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  white-space: nowrap;
+}
+#local-listing th.num, #local-listing td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+#local-listing tbody tr.dir { cursor: pointer; font-weight: 500; }
+#local-listing tbody tr.dir:hover,
+#local-listing tbody tr.file:hover,
+#local-listing tbody tr.selected {
+  background: var(--vscode-list-hoverBackground);
+}
+#local-listing tbody tr.dir .name::before { content: "📁 "; }
+#local-listing tbody tr.file .name::before { content: "📄 "; }
+
+#local-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* When a drag from the local pane hovers over the remote pane, outline
+ * it as the drop target — clearer than the full-screen OS overlay
+ * (which is reserved for drags originating outside the webview). */
+#panes .pane.drop-target {
+  outline: 2px dashed var(--vscode-focusBorder);
+  outline-offset: -2px;
+}
+
+/* ---------- OS drag-drop overlay ---------- */
+
+#drop-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(
+    in srgb,
+    var(--vscode-list-activeSelectionBackground) 25%,
+    transparent
+  );
+  border: 2px dashed var(--vscode-focusBorder);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 80ms;
+  z-index: 100;
+}
+#drop-overlay.active {
+  opacity: 1;
+}
+#drop-overlay .drop-hint {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-focusBorder);
+  padding: 16px 24px;
+  border-radius: 4px;
+  font-size: 1.1em;
+}
+#drop-overlay #drop-target {
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+#listing thead {
+  position: sticky;
+  top: 0;
+  background: var(--vscode-sideBar-background);
+  z-index: 1;
+}
+
+#listing th,
+#listing td {
+  text-align: left;
+  padding: 2px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  white-space: nowrap;
+}
+
+#listing th.num,
+#listing td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#listing th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+#listing th.sortable:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+#listing th[aria-sort="ascending"]::after {
+  content: " ↑";
+  opacity: 0.7;
+}
+
+#listing th[aria-sort="descending"]::after {
+  content: " ↓";
+  opacity: 0.7;
+}
+
+#listing tbody tr {
+  cursor: default;
+}
+
+#listing tbody tr.dir {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+#listing tbody tr.dir:hover,
+#listing tbody tr.symlink:hover,
+#listing tbody tr.file:hover,
+#listing tbody tr.selected {
+  background: var(--vscode-list-hoverBackground);
+}
+
+#listing tbody tr.selected {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+#listing tbody tr.dir .name::before {
+  content: "📁 ";
+}
+
+#listing tbody tr.file .name::before {
+  content: "📄 ";
+}
+
+#listing tbody tr.symlink .name::before {
+  content: "🔗 ";
+}
+
+#listing tbody tr.other .name::before {
+  content: "⚙︎ ";
+}
+
+#listing tbody td.perms,
+#listing tbody td.mtime,
+#local-listing tbody td.perms {
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+#empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ---------- Context menu ---------- */
+
+#ctxmenu {
+  position: fixed;
+  z-index: 10;
+  min-width: 180px;
+  padding: 4px 0;
+  border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+  background: var(--vscode-menu-background);
+  color: var(--vscode-menu-foreground);
+  /* Shadow uses VS Code's widget-shadow token so light / dark /
+   * high-contrast themes all pick appropriate contrast. */
+  box-shadow: 0 4px 12px var(--vscode-widget-shadow, transparent);
+  border-radius: 3px;
+  font-size: 0.95em;
+}
+
+#ctxmenu .item {
+  padding: 4px 14px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#ctxmenu .item:hover,
+#ctxmenu .item:focus-visible {
+  background: var(--vscode-menu-selectionBackground);
+  color: var(--vscode-menu-selectionForeground);
+  outline: none;
+}
+
+#ctxmenu .item.danger {
+  color: var(--vscode-errorForeground);
+}
+
+#ctxmenu .sep {
+  height: 1px;
+  background: var(--vscode-menu-separatorBackground, var(--vscode-panel-border));
+  margin: 4px 0;
+}
+
+/* Marquee (rubber-band) selection overlay. Positioned in viewport
+   coordinates so it doesn't need a positioned ancestor; pointer-events
+   none so the user can still release the drag over any underlying row. */
+.marquee {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  background: var(--vscode-editor-inactiveSelectionBackground);
+  border: 1px solid var(--vscode-focusBorder);
+}

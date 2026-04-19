@@ -1,0 +1,51 @@
+name: Feature request
+description: Suggest a new capability or an improvement to an existing one.
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! The questions below help us
+        understand whether the idea fits vsCRT's scope before
+        committing engineering time.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem you're trying to solve
+      description: What can you not do today that you'd like to?
+      placeholder: |
+        "When I …, I'd like to … so that …"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: Sketch the UI surface, command name, config field, or keyboard shortcut. Rough wireframes / pseudocode are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing vsCRT commands, other extensions, shell tools, etc.
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who benefits
+      multiple: true
+      options:
+        - Me, my small team
+        - My larger org (10+ people)
+        - Most vsCRT users (general)
+        - Power users / ops teams
+        - Security / compliance teams
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Scope check
+      options:
+        - label: This is inside vsCRT's SSH / session-manager scope (not a request for SFTP, serial, telnet, or VS Code core features).
+        - label: I searched existing issues and this isn't already proposed.
+          required: true

@@ -1,0 +1,11 @@
+{
+  "require": "out/test/setup.js",
+  "spec": "out/test/**/*.test.js",
+  "ignore": [
+    "out/test/integration/**/*.test.js",
+    "out/test/perf/**/*"
+  ],
+  "timeout": 10000,
+  "ui": "bdd",
+  "reporter": "spec"
+}

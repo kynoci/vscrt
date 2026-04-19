@@ -1,0 +1,86 @@
+name: Bug report
+description: Something isn't working the way you expected.
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. The four fields below
+        resolve most triage in one round — please fill them out so we
+        don't have to ask.
+
+        For suspected **security vulnerabilities**, please see
+        [SECURITY.md](../SECURITY.md) instead of using this form.
+  - type: input
+    id: vscrt_version
+    attributes:
+      label: vsCRT version
+      description: From `package.json` or the Marketplace sidebar.
+      placeholder: "e.g. 0.9.4"
+    validations:
+      required: true
+  - type: input
+    id: vscode_version
+    attributes:
+      label: VS Code version
+      description: "`Help → About` → copy the first line."
+      placeholder: "e.g. 1.106.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      multiple: false
+      options:
+        - Windows 10
+        - Windows 11
+        - macOS
+        - Ubuntu / Debian / other Linux
+        - WSL (specify distro in reproduction steps)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Exact sequence of actions. Include a minimal `vscrtConfig.json` with secrets redacted if the bug is config-specific.
+      placeholder: |
+        1. Open vsCRT Connection view
+        2. Right-click "Prod Web" → Connect
+        3. Observe …
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual behaviour
+      placeholder: |
+        Expected: terminal opens and prompts for password.
+        Actual: terminal closes immediately with no prompt.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Output Log
+      description: "`Command Palette → vsCRT: Show Output Log`, then paste relevant lines. Redact any secrets before posting."
+      render: shell
+  - type: textarea
+    id: diag
+    attributes:
+      label: "`vscrt diag` output (optional)"
+      description: "If you have the `vscrt-cli` installed, running `vscrt diag` produces a secret-free environment summary (Node / OS / available binaries / config counts)."
+      render: markdown
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Sanity checks
+      options:
+        - label: I searched existing issues and this doesn't duplicate one.
+          required: true
+        - label: I redacted any passwords, tokens, or private hostnames from the paste above.
+          required: true

@@ -1,0 +1,262 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kynoci.com/vscrt/vscrtConfig.schema.json",
+  "title": "vsCRT Configuration",
+  "description": "Session tree and per-node settings for the vsCRT VS Code extension. Normally lives at ~/.vscrt/vscrtConfig.json and is managed via the Connection view — but it's plain JSON and safe to edit by hand.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Internal schema version. Stamped by vsCRT's migration runner on save; never edit by hand."
+    },
+    "folder": {
+      "type": "array",
+      "description": "Top-level folders. Each folder holds servers and optional nested subfolders.",
+      "items": { "$ref": "#/definitions/folder" }
+    },
+    "knownFingerprints": {
+      "type": "array",
+      "description": "Pre-shared SHA-256 fingerprints for known-good hosts. The TOFU modal is skipped when the live scan matches; mismatches are surfaced so a rotated or compromised host is never silently accepted.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["host", "sha256"],
+        "properties": {
+          "host": { "type": "string", "minLength": 1 },
+          "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "sha256": {
+            "type": "string",
+            "pattern": "^SHA256:[A-Za-z0-9+/=]+$"
+          },
+          "comment": { "type": "string" }
+        }
+      }
+    },
+    "launchProfiles": {
+      "type": "array",
+      "description": "Named sets of servers that launch together — for cross-folder morning/pre-deploy/post-incident routines.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "targets"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["nodePath"],
+              "properties": {
+                "nodePath": { "type": "string" },
+                "terminalLocation": {
+                  "type": "string",
+                  "enum": ["panel", "editor"]
+                },
+                "delayMs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 60000
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "vsCRT.doubleClickTerminalLocation": {
+      "type": "string",
+      "enum": ["panel", "editor"],
+      "description": "Where the SSH terminal opens when you double-click a server in the Connection view. Defaults to 'editor'. A node's 'terminalLocation' field overrides this."
+    },
+    "vsCRT.buttonClickTerminalLocation": {
+      "type": "string",
+      "enum": ["panel", "editor"],
+      "description": "Where the SSH terminal opens when you invoke Connect from a context menu entry or the Command Palette. Defaults to 'panel'. A node's 'terminalLocation' field overrides this."
+    }
+  },
+  "definitions": {
+    "folder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Display name. Must be unique among siblings. Cannot contain '/'."
+        },
+        "icon": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Codicon name without the 'codicon-' prefix. Examples: 'folder', 'folder-library', 'organization', 'cloud'. See https://microsoft.github.io/vscode-codicons/ for the full list."
+        },
+        "subfolder": {
+          "type": "array",
+          "description": "Nested subfolders. Renders with the 'folder-library' icon by default.",
+          "items": { "$ref": "#/definitions/folder" }
+        },
+        "nodes": {
+          "type": "array",
+          "description": "Servers that live directly in this folder.",
+          "items": { "$ref": "#/definitions/node" }
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "endpoint"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Display name for this server."
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "SSH target. Preferred format: user@host or user@host:port — e.g. 'deploy@prod-web:2201'. If no '@' is present, vsCRT falls back to the 'user' and 'hostName' fields."
+        },
+        "icon": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Codicon name without the 'codicon-' prefix. Examples: 'server', 'database', 'cloud', 'terminal-bash', 'terminal-linux', 'terminal-powershell'."
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Optional hostname. Only used when 'endpoint' is not in user@host form."
+        },
+        "user": {
+          "type": "string",
+          "description": "Optional SSH user. Only used when 'endpoint' is not in user@host form."
+        },
+        "preferredAuthentication": {
+          "type": "string",
+          "enum": ["password", "publickey"],
+          "description": "Authentication method. 'password' uses sshpass with the 'password' field; 'publickey' uses the 'identityFile' field. If omitted, vsCRT prompts interactively."
+        },
+        "identityFile": {
+          "type": "string",
+          "description": "Path to the PRIVATE SSH key (publickey auth only). '~' is expanded to the user's home directory. Must not end in '.pub'."
+        },
+        "extraArgs": {
+          "type": "string",
+          "description": "Raw extra arguments appended to the ssh command (e.g. '-v' or '-o KexAlgorithms=curve25519-sha256'). Injected BEFORE the default -o StrictHostKeyChecking=accept-new so these win. Treated as a raw shell fragment — be careful with quoting."
+        },
+        "jumpHost": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._@:,\\[\\]-]+$",
+          "description": "SSH ProxyJump spec: '[user@]host[:port]', comma-separated for multi-hop chains (e.g. 'alice@bastion1,bob@bastion2'). Rendered as 'ssh -o ProxyJump=<this>'. Works with both password and publickey auth. Constrained to the safe character set for shell embedding; use 'extraArgs' if you need anything more exotic."
+        },
+        "portForwards": {
+          "type": "array",
+          "description": "Port forwards to establish alongside the session. Each entry is rendered as a raw '-L', '-R', or '-D' argument.",
+          "items": {
+            "type": "string",
+            "pattern": "^-[LRD] [0-9A-Za-z:.\\[\\]/_-]+$",
+            "description": "Examples: '-L 3306:db.internal:3306', '-R 8080:localhost:8080', '-D 1080'."
+          }
+        },
+        "env": {
+          "type": "object",
+          "description": "Environment variables set in the spawned terminal before ssh runs. Keys must be valid env-var names. Values are strings.",
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "password": {
+          "type": "string",
+          "description": "Password handle. '@secret:<uuid>' is an OS keychain reference (default). 'enc:v4:t=…,m=…,p=…:<iv>:<ct>' is an in-file Argon2id + AES-GCM ciphertext. Legacy 'enc:v3:…' is still readable. Plain text is auto-migrated into the configured backend on first load — don't hand-edit plaintext here."
+        },
+        "passwordDelivery": {
+          "type": "string",
+          "enum": ["argv", "tempfile", "pipe"],
+          "description": "How the password reaches sshpass. 'tempfile' (default on all platforms) writes a mode-0600 temp file with a trap to delete on exit. 'pipe' uses a token-authed loopback socket (Unix) or named pipe (Windows). 'argv' is the legacy last-resort path and can leak via `ps`."
+        },
+        "passwordStorage": {
+          "type": "string",
+          "enum": ["secretstorage", "passphrase"],
+          "description": "Where the password lives. 'secretstorage' (default) keeps only an '@secret:<uuid>' reference in this file; the actual password lives in the OS keychain. 'passphrase' encrypts with Argon2id + AES-GCM and stores the ciphertext inline — portable across machines."
+        },
+        "terminalLocation": {
+          "type": "string",
+          "enum": ["panel", "editor"],
+          "description": "Per-node override for where the SSH terminal opens. Wins over the top-level vsCRT.*TerminalLocation settings."
+        },
+        "agentForwarding": {
+          "type": "boolean",
+          "description": "Emit 'ssh -A' so local agent keys are forwarded to the remote session. Convenient but lets the remote host impersonate you to anything your agent can authenticate to; leave off unless you know you need it."
+        },
+        "addKeysToAgent": {
+          "type": "string",
+          "enum": ["yes", "no", "ask", "confirm"],
+          "description": "Maps to '-o AddKeysToAgent=<value>'. When set, ssh adds freshly unlocked keys to the running agent for re-use across sessions."
+        },
+        "recordSession": {
+          "type": "string",
+          "enum": ["off", "minimal", "full"],
+          "description": "Per-node override for session recording. 'off' disables recording for this node; any non-off value overrides the global vsCRT.sessionRecording in the other direction. Default (unset) honours the global."
+        },
+        "commands": {
+          "type": "array",
+          "description": "Saved shell snippets. Each becomes a QuickPick entry under 'vsCRT: Run Command…' and is sent to the spawned terminal verbatim.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "script"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Human-readable label for the snippet."
+              },
+              "script": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Raw shell command(s) — sent via terminal.sendText so shell features (pipes, quoting, heredocs) work as usual on the remote."
+              },
+              "description": {
+                "type": "string",
+                "description": "Optional one-liner shown as the QuickPick description."
+              }
+            }
+          }
+        },
+        "connectTimeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300,
+          "description": "Maps to 'ssh -o ConnectTimeout=<n>'. Maximum wait (in seconds) for the TCP handshake to complete."
+        },
+        "serverAliveIntervalSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600,
+          "description": "Maps to 'ssh -o ServerAliveInterval=<n>'. Sends a keepalive through the encrypted channel every <n> seconds. 0 disables."
+        },
+        "identitiesOnly": {
+          "type": "boolean",
+          "description": "Maps to 'ssh -o IdentitiesOnly=yes|no'. When true, ssh only uses the identity files configured here (or in ~/.ssh/config), ignoring any keys offered by the agent."
+        },
+        "extraSshDirectives": {
+          "type": "object",
+          "description": "Escape hatch for ~/.ssh/config directives not natively modelled. Each key/value pair becomes '-o <Key>=<Value>' at connect time. Keys must be alphanumeric (a-zA-Z); values must not contain shell metacharacters.",
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9]*$": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "port": {
+          "type": "number",
+          "description": "DEPRECATED. Merge the port into 'endpoint' (e.g. 'user@host:2201'). This field is migrated to the endpoint on first load.",
+          "deprecationMessage": "Deprecated. Merge the port into 'endpoint' (e.g. 'user@host:2201'); vsCRT migrates this field automatically on first load."
+        }
+      }
+    }
+  }
+}

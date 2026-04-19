@@ -1,0 +1,35 @@
+{
+  "name": "vscrt-cli",
+  "version": "0.0.1",
+  "description": "Command-line companion for the vsCRT VS Code extension — list, connect, and diagnose without leaving the terminal.",
+  "bin": {
+    "vscrt": "./dist/vscrt.js"
+  },
+  "main": "./dist/vscrt.js",
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "build:watch": "node esbuild.mjs --watch",
+    "compile-tests": "tsc -p .",
+    "pretest": "npm run compile-tests",
+    "test": "node --test src/__tests__/*.test.mjs"
+  },
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kynoci/vscrt.git",
+    "directory": "cli"
+  },
+  "keywords": [
+    "ssh",
+    "vscode",
+    "vscrt",
+    "cli"
+  ]
+}

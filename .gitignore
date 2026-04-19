@@ -1,10 +1,38 @@
+# Build output
 out
 dist
+*.tsbuildinfo
+
+# Dependencies
 node_modules
+
+# VS Code extension artefacts
 .vscode-test/
 *.vsix
+
+# Coverage (c8 / nyc — neither runs in CI today but the dep is present)
+coverage/
+.nyc_output/
+
+# Secrets — preemptive guard. This project stores SSH passwords;
+# a misplaced `.env` file is exactly the kind of accident we don't
+# want. `.env.example` is opt-in for documented sample configs.
+.env
+.env.*
+!.env.example
 
 # OS / editor cruft
 .DS_Store
 Thumbs.db
 *.log
+
+# Hygiene — editor backups, merge conflicts, JetBrains project,
+# VS Code "Local History" extension. None present today; these
+# are here so a stray `git add -A` doesn't pick them up.
+*.swp
+*.swo
+*~
+*.orig
+*.rej
+.idea/
+.history/

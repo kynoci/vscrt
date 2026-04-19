@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to re-release (e.g. v0.9.4)'
+        required: true
+
+# Ensure only one release runs per tag — a manual re-run while an earlier
+# job is publishing would otherwise race for the GitHub Release + Marketplace.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write  # needed to create the GitHub Release and attach the .vsix
+
+jobs:
+  release:
+    name: Publish ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history for CHANGELOG extract)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Re-run every CI gate on the tagged commit. We never ship a build that
+      # hasn't passed type-check / lint / unit tests on the exact HEAD being
+      # released, regardless of what the branch CI said yesterday.
+      - name: Type-check
+        run: npm run check-types
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Build (production bundle)
+        run: node esbuild.js --production
+
+      # Fail early when a tag was pushed without bumping package.json — the
+      # two would drift and downstream users would see v0.9.5 on the
+      # Marketplace bundled from a v0.9.4 package.json.
+      - name: Verify package.json version matches tag
+        id: verify_version
+        run: |
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
+          TAG_VERSION="${TAG_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error title=Version mismatch::Tag is ${TAG_NAME} (→${TAG_VERSION}) but package.json is ${PKG_VERSION}. Run 'npm run release:patch|minor|major' to bump both together."
+            exit 1
+          fi
+          echo "version=${TAG_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Matched: ${TAG_NAME} → ${PKG_VERSION}"
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          node scripts/extract-changelog.mjs "${{ steps.verify_version.outputs.version }}" > release-notes.md
+          echo "path=release-notes.md" >> "$GITHUB_OUTPUT"
+          echo "--- release notes preview ---"
+          cat release-notes.md
+
+      - name: Package .vsix
+        run: |
+          npx --yes @vscode/vsce package --out "vscrt-${{ steps.verify_version.outputs.version }}.vsix"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: vsCRT ${{ github.event.inputs.tag || github.ref_name }}
+          body_path: release-notes.md
+          files: vscrt-${{ steps.verify_version.outputs.version }}.vsix
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
+
+      # Auto-publish to the VS Code Marketplace only when a PAT is configured.
+      # Without the secret this step is skipped silently, so forks and
+      # contributors who don't have marketplace access still get a working
+      # release workflow that produces a downloadable .vsix.
+      - name: Publish to VS Code Marketplace
+        if: env.VSCE_PAT != ''
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          npx --yes @vscode/vsce publish --packagePath "vscrt-${{ steps.verify_version.outputs.version }}.vsix" --pat "$VSCE_PAT"

@@ -1,0 +1,8 @@
+{
+  "require": "out/test/setup.js",
+  "spec": "out/test/perf/**/*.perf.js",
+  "timeout": 120000,
+  "ui": "bdd",
+  "reporter": "spec",
+  "slow": 1000
+}

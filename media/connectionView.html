@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="${csp}" />
+<link rel="stylesheet" href="${codiconsCssUri}" />
+<link rel="stylesheet" href="${cssUri}" />
+</head>
+<body>
+<div id="tree" role="tree" aria-label="vsCRT servers" aria-multiselectable="true" tabindex="0"></div>
+<div id="filter-bar" role="search">
+  <span id="filter-icon" aria-hidden="true"><i class="codicon codicon-filter"></i></span>
+  <input id="filter-input" type="text" placeholder="Filter…" spellcheck="false" aria-label="Filter servers" aria-controls="tree" />
+  <button id="filter-clear" type="button" title="Clear filter" aria-label="Clear filter"><i class="codicon codicon-close" aria-hidden="true"></i></button>
+</div>
+<div id="ctxmenu" role="menu" aria-label="Server actions"></div>
+<script nonce="${nonce}">window.__vscrtCustomIcons = ${customIconUrisJson};</script>
+<script nonce="${nonce}" src="${jsUri}"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# Default reviewer — any file without a more specific rule.
+*   @kynoci
+
+# Cryptographic core. Argon2id parameters, AES-GCM framing, and the
+# ciphertext format are load-bearing for the vault's security
+# guarantees — every change here gets explicit maintainer review.
+/src/config/vscrtPassphrase.ts   @kynoci
+/src/config/vscrtExportBundle.ts @kynoci
+/src/config/vscrtSecret.ts       @kynoci
+
+# Password delivery to the SSH subprocess. Temp-file ACLs, pipe
+# tokens, and argv-escape rules are security-critical.
+/src/ssh/sshPasswordDelivery.ts  @kynoci
+
+# known_hosts manipulation + host-key policy. Changes here affect
+# MITM resistance.
+/src/ssh/hostKey.ts              @kynoci
+
+# Release workflow + version bump. A mistake here can ship a
+# broken .vsix to the Marketplace.
+/.github/workflows/release.yml   @kynoci
+/scripts/bump-version.mjs        @kynoci
+/scripts/changelogUtil.mjs       @kynoci

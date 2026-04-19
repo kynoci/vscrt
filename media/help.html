@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="${csp}" />
+<link rel="stylesheet" href="${codiconsCssUri}" />
+<link rel="stylesheet" href="${cssUri}" />
+</head>
+<body>
+<div id="wrap">
+  <h1>vsCRT Help</h1>
+  <p class="subtitle">Consolidated troubleshooting + capabilities + command reference.</p>
+
+  <nav id="tabs" role="tablist" aria-label="Help sections">
+    <button role="tab" aria-selected="true" data-tab="troubleshoot" class="active">Troubleshoot</button>
+    <button role="tab" aria-selected="false" data-tab="capabilities">Capabilities</button>
+    <button role="tab" aria-selected="false" data-tab="commands">Commands</button>
+    <button role="tab" aria-selected="false" data-tab="settings">Settings</button>
+  </nav>
+
+  <section id="panel-troubleshoot" role="tabpanel" aria-labelledby="tab-troubleshoot"></section>
+  <section id="panel-capabilities" role="tabpanel" hidden></section>
+  <section id="panel-commands" role="tabpanel" hidden></section>
+  <section id="panel-settings" role="tabpanel" hidden></section>
+</div>
+<script nonce="${nonce}">window.__vscrtHelpContent = ${contentJson};</script>
+<script nonce="${nonce}" src="${jsUri}"></script>
+</body>
+</html>

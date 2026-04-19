@@ -6,43 +6,31 @@
         {
           "name": "Juniper Router",
           "endpoint": "user@203.0.113.1:2201",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "globe"
         },
         {
           "name": "Load Balancer",
           "endpoint": "user@203.0.113.1:2202",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "shield"
         },
         {
           "name": "Web Server 1",
           "endpoint": "user@203.0.113.1:2203",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "cloud"
         },
         {
           "name": "Web Server 2",
           "endpoint": "user@203.0.113.1:2204",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "cloud"
         },
         {
           "name": "Database Cluster",
           "endpoint": "user@203.0.113.1:2205",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "database"
         },
         {
           "name": "Back Office",
           "endpoint": "user@203.0.113.1:2208",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "tools"
         }
       ],
@@ -53,22 +41,16 @@
             {
               "name": "Backup Router",
               "endpoint": "user@203.0.113.254:2201",
-              "preferredAuthentication": "password",
-              "password": "password",
               "icon": "globe"
             },
             {
               "name": "Backup Web",
               "endpoint": "user@203.0.113.254:2202",
-              "preferredAuthentication": "password",
-              "password": "password",
               "icon": "cloud"
             },
             {
               "name": "Backup Database",
               "endpoint": "user@203.0.113.254:2203",
-              "preferredAuthentication": "password",
-              "password": "password",
               "icon": "database"
             }
           ],
@@ -82,36 +64,26 @@
         {
           "name": "OpenWRT Router",
           "endpoint": "user@192.168.0.1",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "globe"
         },
         {
           "name": "Web Proxy",
           "endpoint": "user@192.168.0.2",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "shield"
         },
         {
           "name": "Web Server (Frank)",
           "endpoint": "user@192.168.0.3",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "cloud"
         },
         {
           "name": "Web Server (Ken)",
           "endpoint": "user@192.168.0.4",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "cloud"
         },
         {
           "name": "Database Server",
           "endpoint": "user@192.168.0.9",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "database"
         }
       ],
@@ -124,29 +96,28 @@
         {
           "name": "All in One Server",
           "endpoint": "user@192.168.0.10",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "server-environment"
+        },
+        {
+          "name": "Key-based Example",
+          "endpoint": "user@192.168.0.10",
+          "preferredAuthentication": "publickey",
+          "identityFile": "~/.ssh/id_ed25519",
+          "icon": "key"
         },
         {
           "name": "Windows",
           "endpoint": "user@192.168.0.10",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "terminal-powershell"
         },
         {
           "name": "macOS",
           "endpoint": "user@192.168.0.11",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "terminal-bash"
         },
         {
           "name": "Linux",
           "endpoint": "user@192.168.0.12",
-          "preferredAuthentication": "password",
-          "password": "password",
           "icon": "terminal-linux"
         }
       ]

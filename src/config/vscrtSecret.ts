@@ -1,6 +1,10 @@
 import * as vscode from "vscode";
 import { randomUUID } from "crypto";
-import { CIPHER_PREFIX_V3, CRTPassphraseService } from "./vscrtPassphrase";
+import {
+  CIPHER_PREFIX_V3,
+  CIPHER_PREFIX_V4,
+  CRTPassphraseService,
+} from "./vscrtPassphrase";
 
 export const SECRET_PREFIX = "@secret:";
 export const CIPHER_PREFIX = "enc:v1:"; // reserved for v2
@@ -8,6 +12,66 @@ export const SECRET_KEY_PREFIX = "vscrt.password.";
 export const SECRET_INDEX_KEY = "vscrt.password._ids";
 
 export type SealMode = "secretstorage" | "passphrase";
+
+/**
+ * Returns true when `s` is any passphrase-encrypted blob
+ * (`enc:v3:` or `enc:v4:`). Exported so migration/analysis code outside
+ * this module can classify a stored password without reaching for the
+ * prefix constants directly.
+ */
+export function isPassphraseBlob(s: string): boolean {
+  return s.startsWith(CIPHER_PREFIX_V3) || s.startsWith(CIPHER_PREFIX_V4);
+}
+
+/**
+ * Classify a password field into one of four forms. Useful for the
+ * import/export flows that want to treat each form differently.
+ */
+export type StoredPasswordForm =
+  | "secretRef"
+  | "cipher-v3"
+  | "cipher-v4"
+  | "plaintext"
+  | "empty";
+
+export function classifyStoredPassword(s: string | undefined): StoredPasswordForm {
+  if (!s) {
+    return "empty";
+  }
+  if (isSecretRef(s)) {
+    return "secretRef";
+  }
+  if (s.startsWith(CIPHER_PREFIX_V4)) {
+    return "cipher-v4";
+  }
+  if (s.startsWith(CIPHER_PREFIX_V3)) {
+    return "cipher-v3";
+  }
+  return "plaintext";
+}
+
+/**
+ * Returns true when `s` is the canonical `@secret:<uuid-v4>` form. Used
+ * by the migration code to distinguish "already-sealed" values from
+ * free-form legacy plaintext before attempting to re-seal.
+ */
+const SECRET_REF_RE =
+  /^@secret:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isSecretRef(s: string): boolean {
+  return SECRET_REF_RE.test(s);
+}
+
+/**
+ * Extract the `<uuid>` portion of a `@secret:<uuid>` reference.
+ * Returns `null` if the input isn't a valid secret ref.
+ */
+export function parseSecretRef(s: string): string | null {
+  if (!isSecretRef(s)) {
+    return null;
+  }
+  return s.slice(SECRET_PREFIX.length);
+}
 
 /**
  * Stores SSH passwords outside of vscrtConfig.json, in VS Code's
@@ -24,7 +88,9 @@ export class CRTSecretService {
   /**
    * Store plaintext and return a reference/ciphertext.
    * `mode` defaults to "secretstorage" (produces "@secret:<uuid>").
-   * "passphrase" produces "enc:v3:<iv>:<ct>" and requires a passphrase service.
+   * "passphrase" produces an "enc:v4:t=…,m=…,p=…:<iv>:<ct>" blob and
+   * requires a passphrase service. Legacy "enc:v3:" blobs written by
+   * earlier versions are still read but never produced by seal().
    */
   async seal(plaintext: string, mode: SealMode = "secretstorage"): Promise<string> {
     if (mode === "passphrase") {
@@ -48,10 +114,10 @@ export class CRTSecretService {
       const id = stored.slice(SECRET_PREFIX.length);
       return this.secrets.get(SECRET_KEY_PREFIX + id);
     }
-    if (stored.startsWith(CIPHER_PREFIX_V3)) {
+    if (isPassphraseBlob(stored)) {
       if (!this.passphrase) {
         throw new Error(
-          "vsCRT: passphrase service unavailable; cannot decrypt enc:v3.",
+          "vsCRT: passphrase service unavailable; cannot decrypt encrypted password.",
         );
       }
       return this.passphrase.unseal(stored);
@@ -69,7 +135,7 @@ export class CRTSecretService {
   }
 
   isPassphraseCiphertext(stored: string | undefined): boolean {
-    return !!stored && stored.startsWith(CIPHER_PREFIX_V3);
+    return !!stored && isPassphraseBlob(stored);
   }
 
   isLegacyPlaintext(stored: string | undefined): boolean {
@@ -82,7 +148,7 @@ export class CRTSecretService {
     if (stored.startsWith(CIPHER_PREFIX)) {
       return false;
     }
-    if (stored.startsWith(CIPHER_PREFIX_V3)) {
+    if (isPassphraseBlob(stored)) {
       return false;
     }
     return true;

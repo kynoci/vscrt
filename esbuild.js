@@ -37,6 +37,7 @@ async function main() {
 		outfile: 'dist/extension.js',
 		external: ['vscode'],
 		logLevel: 'silent',
+		metafile: production,
 		plugins: [
 			/* add to the end of plugins array */
 			esbuildProblemMatcherPlugin,
@@ -45,7 +46,15 @@ async function main() {
 	if (watch) {
 		await ctx.watch();
 	} else {
-		await ctx.rebuild();
+		const result = await ctx.rebuild();
+		if (production && result.metafile) {
+			const text = await esbuild.analyzeMetafile(result.metafile, { verbose: false });
+			console.log('\n📦 Bundle analysis:\n' + text);
+			const fs = require('fs');
+			const stat = fs.statSync('dist/extension.js');
+			const kb = (stat.size / 1024).toFixed(1);
+			console.log(`   dist/extension.js: ${kb} KB (minified)\n`);
+		}
 		await ctx.dispose();
 	}
 }
