@@ -5,6 +5,17 @@ this file. The format is loosely based on [Keep a
 Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4]
+
+### Fixed
+
+- **Published extension icons** — codicons CSS/TTF were excluded from
+  the `.vsix` by `node_modules/**` in `.vscodeignore`, so the marketplace
+  install rendered blank glyphs in the Connection view, Add/Edit Server
+  form, and Help panel while dev hosts worked fine. Added targeted
+  negations for `@vscode/codicons/dist/codicon.{css,ttf}` so only those
+  two files ship from `node_modules/`.
+
 ## [1.0.3]
 
 ### Added
