@@ -74,7 +74,8 @@ body {
   color: var(--vscode-button-foreground);
 }
 
-#path-bar {
+#path-bar,
+#local-path-bar {
   flex: 1 1 auto;
   min-width: 120px;
   display: flex;
@@ -84,15 +85,18 @@ body {
   cursor: text;
 }
 
-#path-bar[data-mode="edit"] #breadcrumbs {
+#path-bar[data-mode="edit"] #breadcrumbs,
+#local-path-bar[data-mode="edit"] #local-breadcrumbs {
   display: none;
 }
 
-#path-bar[data-mode="crumbs"] #path-input {
+#path-bar[data-mode="crumbs"] #path-input,
+#local-path-bar[data-mode="crumbs"] #local-path-input {
   display: none;
 }
 
-#path-input {
+#path-input,
+#local-path-input {
   flex: 1 1 auto;
   min-width: 0;
   padding: 3px 6px;
@@ -104,7 +108,8 @@ body {
   border-radius: 3px;
 }
 
-#breadcrumbs {
+#breadcrumbs,
+#local-breadcrumbs {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
@@ -117,7 +122,8 @@ body {
   white-space: nowrap;
 }
 
-#breadcrumbs .crumb {
+#breadcrumbs .crumb,
+#local-breadcrumbs .crumb {
   cursor: pointer;
   padding: 1px 4px;
   border-radius: 2px;
@@ -125,12 +131,15 @@ body {
 }
 
 #breadcrumbs .crumb:hover,
-#breadcrumbs .crumb:focus-visible {
+#breadcrumbs .crumb:focus-visible,
+#local-breadcrumbs .crumb:hover,
+#local-breadcrumbs .crumb:focus-visible {
   background: var(--vscode-list-hoverBackground);
   outline: none;
 }
 
-#breadcrumbs .sep {
+#breadcrumbs .sep,
+#local-breadcrumbs .sep {
   opacity: 0.55;
 }
 
@@ -394,21 +403,6 @@ body {
 .pane-header-btn:focus-visible {
   outline: 1px solid var(--vscode-focusBorder);
   outline-offset: 1px;
-}
-
-#local-path-input {
-  flex: 1;
-  padding: 2px 6px;
-  font-family: var(--vscode-editor-font-family, monospace);
-  font-size: 0.9em;
-  border: 1px solid var(--vscode-input-border, transparent);
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border-radius: 2px;
-}
-#local-path-input:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
-  outline-offset: -1px;
 }
 
 #local-listing {

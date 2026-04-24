@@ -69,6 +69,12 @@
     localPathInput: /** @type {HTMLInputElement} */ (
       document.getElementById("local-path-input")
     ),
+    localPathBar: /** @type {HTMLElement} */ (
+      document.getElementById("local-path-bar")
+    ),
+    localBreadcrumbs: /** @type {HTMLElement} */ (
+      document.getElementById("local-breadcrumbs")
+    ),
     toggleLocal: /** @type {HTMLElement} */ (
       document.getElementById("toggle-local-pane")
     ),

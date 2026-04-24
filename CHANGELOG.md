@@ -5,6 +5,18 @@ this file. The format is loosely based on [Keep a
 Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6]
+
+### Added
+
+- **SFTP Browser — Local pane now uses clickable breadcrumb segments.**
+  The Local pane header previously held only a plain path text input,
+  which was inconsistent with the Remote pane's clickable breadcrumbs.
+  The Local pane now renders the same breadcrumb-style path bar
+  (click a segment to jump there, click empty space to edit the path
+  as text, Enter to commit, Escape to cancel). Handles POSIX, tilde,
+  and Windows drive paths.
+
 ## [1.0.5]
 
 ### Fixed

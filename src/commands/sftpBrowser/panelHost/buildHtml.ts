@@ -145,7 +145,12 @@ export function buildWebviewHtml(
     <section id="local-pane" class="pane" hidden>
       <header class="pane-header">
         <span class="pane-title">Local</span>
-        <input id="local-path-input" type="text" spellcheck="false" aria-label="Local path (press Enter)">
+        <div id="local-path-bar" data-mode="crumbs" title="Click to edit path">
+          <nav id="local-breadcrumbs" aria-label="Local path breadcrumbs"></nav>
+          <input id="local-path-input" type="text" spellcheck="false"
+                 aria-label="Local path (press Enter to navigate, Esc to cancel)"
+                 hidden>
+        </div>
       </header>
       <div id="local-listing-scroll" class="table-scroll">
         <table id="local-listing" role="grid">

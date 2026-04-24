@@ -32,11 +32,83 @@
     if (!p) return;
     state.localPath = p;
     dom.localPathInput.value = p;
+    ns.renderLocalBreadcrumbs?.(p);
     // Navigating to a new directory resets the selection — the names
     // won't exist there anyway, and carrying stale selection state
     // into a fresh listing only causes confusion.
     ns.clearLocalSelection?.();
     ns.post({ type: "localList", path: p });
+  };
+
+  /**
+   * Local-pane breadcrumb renderer — mirrors
+   * `navigation.js:renderBreadcrumbs` so the two panes feel the same.
+   * Accepts POSIX ("/home/a"), tilde ("~/a"), and Windows ("C:\\a")
+   * paths; the separator in the rendered crumbs matches whichever
+   * appeared in the input so the path round-trips cleanly when a
+   * crumb is clicked.
+   *
+   * @param {string} pathStr
+   */
+  ns.renderLocalBreadcrumbs = function renderLocalBreadcrumbs(pathStr) {
+    if (!dom.localBreadcrumbs) return;
+    dom.localBreadcrumbs.replaceChildren();
+    const hasBackslash = pathStr.includes("\\");
+    const sepChar = hasBackslash ? "\\" : "/";
+    const parts = pathStr.split(/[\\/]/).filter(Boolean);
+    const isTilde = pathStr.startsWith("~");
+    const isDrive = !isTilde && /^[A-Za-z]:/.test(pathStr);
+    /** @type {string} */
+    let root;
+    if (isTilde) {
+      root = "~";
+    } else if (isDrive) {
+      // `parts[0]` is the "C:" drive segment; consume it as the root
+      // so the remaining parts render as crumbs under it.
+      root = parts.shift() || "";
+    } else {
+      root = "/";
+    }
+    // Target path for the root crumb — drives need the trailing
+    // separator to be a valid navigable path ("C:\\" not "C:").
+    const rootTarget = isDrive ? root + sepChar : root;
+
+    const rootEl = document.createElement("span");
+    rootEl.className = "crumb";
+    rootEl.tabIndex = 0;
+    rootEl.textContent = root;
+    rootEl.addEventListener("click", () => ns.navigateLocal(rootTarget));
+    rootEl.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        ns.navigateLocal(rootTarget);
+      }
+    });
+    dom.localBreadcrumbs.appendChild(rootEl);
+
+    // Skip the leading "~" when building crumbs under a tilde root.
+    const crumbParts = isTilde ? parts.slice(1) : parts;
+    let acc = rootTarget;
+    for (const part of crumbParts) {
+      const sep = document.createElement("span");
+      sep.className = "sep";
+      sep.textContent = sepChar;
+      dom.localBreadcrumbs.appendChild(sep);
+      acc = acc.endsWith(sepChar) ? acc + part : acc + sepChar + part;
+      const el = document.createElement("span");
+      el.className = "crumb";
+      el.tabIndex = 0;
+      el.textContent = part;
+      const target = acc;
+      el.addEventListener("click", () => ns.navigateLocal(target));
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          ns.navigateLocal(target);
+        }
+      });
+      dom.localBreadcrumbs.appendChild(el);
+    }
   };
 
   // Install the marquee once: the local rows element exists from
@@ -74,6 +146,7 @@
   ns.renderLocal = function renderLocal(listing) {
     state.localPath = listing.path;
     dom.localPathInput.value = listing.path;
+    ns.renderLocalBreadcrumbs(listing.path);
     state.localEntries = listing.entries || [];
     dom.localRowsEl.replaceChildren();
     if (listing.error) {
@@ -475,11 +548,58 @@
       dom.toggleLocalMenu.setAttribute("aria-expanded", "false");
     }
   }
+  // Local path-bar edit mode — mirrors the remote pane's toolbar.js
+  // wiring. Default shows breadcrumbs; clicking anywhere on the bar
+  // that isn't a crumb swaps in a text input. Enter commits, Escape
+  // or blur reverts to crumbs without navigating.
+  function enterLocalPathEdit() {
+    if (!dom.localPathBar) return;
+    dom.localPathBar.dataset.mode = "edit";
+    dom.localPathInput.hidden = false;
+    dom.localPathInput.value = state.localPath;
+    dom.localPathInput.focus();
+    dom.localPathInput.select();
+  }
+
+  function exitLocalPathEdit() {
+    if (!dom.localPathBar) return;
+    dom.localPathBar.dataset.mode = "crumbs";
+    dom.localPathInput.hidden = true;
+  }
+
+  if (dom.localPathBar) {
+    dom.localPathBar.addEventListener(
+      "click",
+      (/** @type {MouseEvent} */ ev) => {
+        if (dom.localPathBar.dataset.mode === "edit") return;
+        const target = /** @type {HTMLElement | null} */ (ev.target);
+        // Crumb clicks navigate via their own handler; only enter edit
+        // mode for clicks on empty space inside the bar.
+        if (target && target.closest(".crumb")) return;
+        enterLocalPathEdit();
+      },
+    );
+  }
+
   dom.localPathInput.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter") {
       ev.preventDefault();
-      ns.navigateLocal(dom.localPathInput.value || "~");
+      const next = dom.localPathInput.value || "~";
+      exitLocalPathEdit();
+      ns.navigateLocal(next);
+    } else if (ev.key === "Escape") {
+      ev.preventDefault();
+      exitLocalPathEdit();
     }
+  });
+
+  dom.localPathInput.addEventListener("blur", () => {
+    // Defer one tick so Enter's navigate call can run before we revert.
+    setTimeout(() => {
+      if (dom.localPathBar && dom.localPathBar.dataset.mode === "edit") {
+        exitLocalPathEdit();
+      }
+    }, 0);
   });
 
   // Listen for localListing + Phase-8 local-pane open/dismiss messages.
